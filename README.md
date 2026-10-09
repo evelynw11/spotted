@@ -107,3 +107,7 @@ The places to swap in real models are marked with `// LIVE:` in `app.js`.
 | `handleUserText` keyword parser | An LLM call that returns structured preference updates |
 | Upload button (currently runs the demo photo) | Real upload, with on-device face blurring before anything is sent |
 
+## Course context
+
+Built as a project prototype for **05-318 Human-AI Interaction** at Carnegie Mellon University (Fall 2026).
+
