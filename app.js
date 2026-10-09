@@ -680,3 +680,41 @@ function viewSame(R) {
   return html;
 }
 
+function exactCard(x) {
+  const { p, m, e } = x; const P = state.prefs;
+  const matched = m.rows.filter(r => r.status !== 'diff');
+  const diffs = m.rows.filter(r => r.status === 'diff');
+  const over = P.budget != null && p.price > P.budget;
+  return `<article class="exact">
+    <div class="exact-img"><img src="${IMG(p.id)}" alt="${esc(p.title)}"><span class="badge-exact">${ic('check', 12)} Likely the same item</span>
+      <button class="heart ${state.saved.includes(p.id) ? 'on' : ''}" data-act="save" data-arg="${p.id}" title="Save">${ic('heart', 16)}</button></div>
+    <div>
+      <div class="row-between"><span class="brand">${esc(p.brand)}</span><span class="price big">${money(p.price)}</span></div>
+      <h3>${esc(p.title)}</h3>
+      <div class="store">${esc(p.store)} · sizes ${p.sizes.join(', ')} in stock · price checked ${p.checked}</div>
+      ${e.chips.length || p.kind !== 'new' ? `<div class="pchips">${e.chips.map(([t, l]) => `<span class="pc pc-${t}">${esc(l)}</span>`).join('')}</div>` : ''}
+      <div class="howsure">
+        <div class="howsure-head">${dotsHtml(m.rows)}<b>${m.nMatch} of ${m.n} visible details match</b><span class="muted">(${m.pct}% visual match)</span></div>
+        <p>${esc(p.exactNote || '')}</p>
+      </div>
+      <div class="two">
+        <div><h5>${ic('check', 13)} What matches</h5><ul>${matched.map(r => `<li class="st-${r.status}">${statusIcon(r.status)}<span>${r.a.label}: ${esc(LABELS[r.pv])}</span></li>`).join('')}${diffs.map(r => `<li class="st-diff">${statusIcon('diff')}<span>${r.a.label}: ${esc(LABELS[r.pv])} (yours: ${esc(LABELS[r.target])})</span></li>`).join('')}</ul></div>
+        <div><h5>${ic('alert', 13)} What I couldn't check</h5><ul>
+          <li class="st-unknown">${statusIcon('unknown')}<span>Material. The listing says ${esc(p.material)}.</span></li>
+          <li class="st-unknown">${statusIcon('unknown')}<span>${esc(p.verify)}</span></li>
+          <li class="st-unknown">${statusIcon('unknown')}<span>Fit on you. Check the size chart and return policy.</span></li>
+        </ul></div>
+      </div>
+      ${over ? `<div class="over-note">${ic('alert', 15)}<span>This is ${money(Math.round(p.price - P.budget))} over your $${P.budget} budget. I kept it here in case it's worth it.</span><span class="spacer"></span><button class="btn btn-sm" data-act="tab" data-arg="similar">Options under $${P.budget}</button></div>` : ''}
+      <div class="card-actions">
+        <button class="btn btn-sm" data-act="compare" data-arg="${p.id}">${ic('compare', 14)} Compare side by side</button>
+        <button class="btn btn-sm btn-primary" data-act="store" data-arg="${p.id}">View at store ${ic('external', 13)}</button>
+        <span class="spacer"></span>
+        <button class="icon-btn ${state.liked.includes(p.id) ? 'on-good' : ''}" data-act="up" data-arg="${p.id}" title="Love it">${ic('up', 15)}</button>
+        <button class="icon-btn" data-act="down" data-arg="${p.id}" title="Not for me">${ic('down', 15)}</button>
+      </div>
+    </div>
+    ${state.popover === p.id ? passPopover(p) : ''}
+  </article>`;
+}
+
