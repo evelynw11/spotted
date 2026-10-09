@@ -295,3 +295,22 @@ body.notes-on .dnote b{display:block;font-size:10.5px;text-transform:uppercase;l
 .pt-shop{background:var(--you-soft);color:var(--you)}
 .outfit .btn{margin-top:auto;align-self:flex-start}
 
+/* ---------- right column ---------- */
+#prefPanel{padding:16px 16px 0;flex:none;max-height:56%;overflow:auto}
+.pref-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pref{display:flex;flex-direction:column;gap:4px;padding:8px;border-radius:10px;background:var(--cream);border:1.5px solid transparent}
+.pref.set{background:#fff;border-color:var(--line)}
+.pref.inf{border:1.5px dashed var(--you);background:var(--you-soft)}
+.pref-l{font-size:11.5px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-height:18px}
+.pref select{width:100%;font-size:12.5px;padding:5px 6px}
+.src{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--good);background:var(--good-soft);padding:0 5px;border-radius:4px}
+.src-inf{color:var(--you);background:#fff;border:1px dashed var(--you)}
+.mini{font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:5px;border:1px solid var(--line);background:#fff}
+.mini.good{border-color:var(--you);color:var(--you)}
+.extras{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 4px 3px 10px;border-radius:999px;background:var(--soft);border:1.5px solid transparent}
+.chip em{font-style:normal;font-size:9.5px;text-transform:uppercase;color:var(--you);font-weight:700;margin-left:2px}
+.chip button{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:var(--muted)}
+.chip button:hover{background:#fff;color:var(--ink)}
+.chip-inf{background:var(--you-soft);border:1.5px dashed var(--you)}
+.changes{margin-top:10px;font-size:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding-top:10px;border-top:1px solid var(--soft)}
