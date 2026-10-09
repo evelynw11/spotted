@@ -67,3 +67,19 @@ People (especially students) who want to buy clothing they've seen in person or 
 - **Ranking:** Visual match counts most. Preferences (budget, secondhand or sustainable, size, fast fashion, "longer") then move items up or down, or hide them. Hidden items can always be shown again.
 - **Assistant:** A small keyword parser turns chat messages into preference updates, and scripted responses explain the effect of each change.
 
+## Run it locally
+
+No build step or dependencies needed.
+
+```bash
+git clone https://github.com/evelynw11/spotted.git
+cd spotted
+open index.html          # or double-click spotted-demo.html
+```
+
+If you edit the code, rebuild the single-file version with Node:
+
+```bash
+node build.js            # writes spotted-demo.html with CSS, JS and images inlined
+```
+
