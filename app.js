@@ -581,3 +581,43 @@ function wsSkeleton() {
   </section>`;
 }
 
+function renderLeft() {
+  const el = $('#colLeft'); if (!el) return; const st = el.scrollTop;
+  const it = ITEMS[state.item];
+  el.innerHTML = `
+    <div class="panel">
+      <div class="panel-head"><h3>Your photo</h3><span class="pill pill-good">${ic('shield', 12)} 2 faces blurred</span></div>
+      ${note('privacy')}
+      ${photoStage({ interactive: true })}
+      <p class="hint">Click a box (or a chip below) to pick what to search for.</p>
+      <div class="item-list">${Object.entries(ITEMS).map(([k, v]) => `<button class="item-chip ${k === state.item ? 'on' : ''}" data-act="pickItem" data-arg="${k}"><span>${v.label}</span><span class="cb cb-${confLevel(v.conf)}">${v.conf}%</span></button>`).join('')}</div>
+      ${note('detect')}
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>What I see</h3><span class="muted small">${esc(it.label)} · ${it.conf}% sure it's there</span></div>
+      <p class="conf-note">${esc(it.confNote)}</p>
+      ${note('perceive')}
+      <ul class="attrs">${it.attrs.map(attrRow).join('')}</ul>
+      <p class="hint">${ic('edit', 12)} Fix anything I got wrong. ${ic('lock', 12)} Lock a detail to only see results that have it.</p>
+    </div>`;
+  el.scrollTop = st;
+}
+function attrRow(a) {
+  const item = state.item, v = state.attrValues[item][a.key], id = `${item}.${a.key}`;
+  const corrected = state.corrected[id], locked = state.locks[id], editing = state.editing === id;
+  const canEdit = a.options.length > 1, canLock = a.w > 0;
+  return `<li class="attr">
+    <div class="attr-main">
+      <span class="attr-label">${a.label}</span>
+      <span class="attr-val">${esc(LABELS[v])}${locked ? '<span class="tag tag-lock">must have</span>' : ''}</span>
+      ${corrected ? '<span class="conf conf-you" title="You corrected this">Fixed by you</span>' : `<span class="conf conf-${a.conf}" title="How sure I am">${confWord(a.conf)}</span>`}
+      <span class="attr-actions">
+        ${canEdit ? `<button class="icon-btn ${editing ? 'on' : ''}" data-act="editAttr" data-arg="${a.key}" title="This is wrong, fix it">${ic('edit', 13)}</button>` : ''}
+        ${canLock ? `<button class="icon-btn ${locked ? 'on' : ''}" data-act="lockAttr" data-arg="${a.key}" title="${locked ? 'Unlock' : 'Must have this'}">${ic(locked ? 'lock' : 'unlock', 13)}</button>` : ''}
+      </span>
+    </div>
+    ${a.note && !corrected ? `<div class="attr-note">${esc(a.note)}</div>` : ''}
+    ${editing ? `<div class="attr-edit"><span>What is it actually?</span>${a.options.map(o => `<button class="opt ${o === v ? 'on' : ''}" data-act="setAttr" data-arg="${a.key}|${o}">${esc(LABELS[o])}</button>`).join('')}</div>` : ''}
+  </li>`;
+}
+
