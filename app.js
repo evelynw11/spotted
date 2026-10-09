@@ -59,3 +59,7 @@ const SIM = {
 };
 const sim = (a, b) => a === b ? 1 : (SIM[a + '|' + b] ?? SIM[b + '|' + a] ?? 0);
 
+const HERO_RATIO = 733 / 1100; // width / height of hero.jpg
+const BLURS = [{ l: 45.2, t: 7.2, w: 13.6, h: 10.4 }, { l: 81, t: 28.2, w: 6.6, h: 4.8 }];
+
+// LIVE: replace ITEMS with the output of a vision model (Gemini) that returns boxes + attributes + confidence.
