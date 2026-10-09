@@ -270,3 +270,25 @@ function ranked(item) {
 const orderOf = item => { const R = ranked(item); return [...R.same, ...R.visible].map(x => x.p.id); };
 const hideReason = x => x.e.hidden || `doesn't have ${x.lockFails.map(r => `${LABELS[r.target].toLowerCase()} ${r.a.label.toLowerCase()}`).join(', ')}`;
 
+/* ---------- preference changes (with undo + re-rank diff) ---------- */
+function snap() { return clone({ prefs: state.prefs, meta: state.meta, attrValues: state.attrValues, corrected: state.corrected, locks: state.locks, hidden: state.hidden }); }
+function applyChange(mut, text, source = 'said') {
+  const before = snap(); const prev = orderOf(state.item);
+  mut();
+  const entry = { id: ++logSeq, text, source, before };
+  state.log.push(entry);
+  const now = orderOf(state.item); const moves = {}; let moved = 0;
+  now.forEach((id, i) => { const j = prev.indexOf(id); if (j === -1) { moves[id] = 'new'; moved++; } else if (j !== i) { moves[id] = j - i; moved++; } });
+  const removed = prev.filter(id => !now.includes(id)).length;
+  state.moves = moves; state.rerank = { text, moved, removed };
+  state.chat.push({ role: 'sys', html: `${source === 'inferred' ? 'Inferred from your feedback' : 'Updated'}: ${esc(text)}`, undo: entry.id, inf: source === 'inferred' });
+  renderAll();
+}
+function undoLast() {
+  const e = state.log.pop(); if (!e) return;
+  Object.assign(state, clone(e.before));
+  state.moves = {}; state.rerank = { text: `undid "${e.text}"`, moved: 0, removed: 0 };
+  state.chat.push({ role: 'sys', html: `Undid: ${esc(e.text)}` });
+  renderAll();
+  aiSay(`Undone. Everything is back to how it was before "${esc(e.text)}".`, null, 450);
+}
