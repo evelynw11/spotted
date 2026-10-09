@@ -530,3 +530,37 @@ function viewHome() {
   </section>`;
 }
 
+const STEPS = [
+  ['Blurring faces and bystanders', '2 blurred'],
+  ['Finding clothing items', '4 found'],
+  ['Reading details: color, knit, buttons, pattern', '17 details'],
+  ['Searching 2,400+ stores and resale sites', '10 matches'],
+  ['Checking prices, sizes and stock', 'done'],
+];
+function photoStage({ interactive = false, blur = true, boxes = true, scan = false } = {}) {
+  return `<div class="stage">
+    <img src="${IMG('hero')}" alt="Street photo of an outfit">
+    ${BLURS.map(b => `<div class="blur ${blur ? 'on' : ''}" style="${pos(b)}"></div>`).join('')}
+    ${Object.entries(ITEMS).map(([k, v]) => `<button class="box ${boxes ? 'on' : ''} ${interactive && k === state.item ? 'sel' : ''} conf-${confLevel(v.conf)} ${v.lbl ? 'lbl-' + v.lbl : ''}" style="${pos(v.box)}" ${interactive ? `data-act="pickItem" data-arg="${k}" title="Search for the ${v.label.toLowerCase()}"` : 'tabindex="-1"'}><span class="box-label">${v.label} · ${v.conf}%</span></button>`).join('')}
+    ${scan ? '<div class="scan"></div>' : ''}
+  </div>`;
+}
+function viewAnalyzing() {
+  return `<section class="analyze">
+    <div id="anStage">${photoStage({ blur: false, boxes: false, scan: true })}</div>
+    <div>
+      <div class="eyebrow">${ic('sparkle', 13)} Working on it</div>
+      <h2>Reading your photo</h2>
+      <p class="sub">This usually takes a few seconds.</p>
+      <ul class="steps-list">${STEPS.map(([s, r]) => `<li><span class="st"></span><span>${s}</span><span class="res">${r}</span></li>`).join('')}</ul>
+      <button class="link" data-act="skip">Skip animation</button>
+    </div>
+  </section>`;
+}
+function updateAnalyzing() {
+  const lis = document.querySelectorAll('.steps-list li');
+  lis.forEach((li, i) => { li.className = i < state.step ? 'done' : i === state.step ? 'active' : ''; li.querySelector('.st').innerHTML = i < state.step ? ic('check', 13) : ''; });
+  document.querySelectorAll('#anStage .blur').forEach(b => b.classList.toggle('on', state.step >= 1));
+  document.querySelectorAll('#anStage .box').forEach(b => b.classList.toggle('on', state.step >= 2));
+}
+
