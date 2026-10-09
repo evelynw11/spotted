@@ -831,3 +831,27 @@ function renderPrefs() {
   </div>`;
 }
 
+function renderChat() {
+  const log = $('#chatLog'); if (!log) return;
+  const lastId = state.log.length ? state.log[state.log.length - 1].id : null;
+  log.innerHTML = state.chat.map((m, i) => {
+    if (m.role === 'sys') return `<div class="msg-sys ${m.inf ? 'inf' : ''}">${ic('refresh', 12)}<span>${m.html}</span>${m.undo != null && m.undo === lastId ? `<button class="link" data-act="undo">Undo</button>` : ''}</div>`;
+    if (m.role === 'user') return `<div class="msg msg-user"><div class="bubble">${m.html}</div></div>`;
+    return `<div class="msg msg-ai"><div class="avatar">${ic('sparkle', 13)}</div><div class="bubble">${m.typing ? '<span class="typing"><i></i><i></i><i></i></span>' : m.html}${m.actions && !m.used && !m.typing ? `<div class="msg-actions">${m.actions.map((a, j) => `<button class="qr" data-act="msgAction" data-arg="${i}|${j}">${esc(a.label)}</button>`).join('')}</div>` : ''}</div></div>`;
+  }).join('');
+  log.scrollTop = log.scrollHeight;
+  renderQuick();
+}
+function renderQuick() {
+  const el = $('#quick'); if (!el) return;
+  const P = state.prefs, q = [];
+  if (P.budget == null) q.push('Under $50, please');
+  if (!P.style) q.push('Secondhand first');
+  if (!P.size) q.push("I'm a size S");
+  if (P.length !== 'longer' && ['cardigan', 'skirt'].includes(state.item)) q.push('Something longer?');
+  q.push(state.item === 'loafers' || state.item === 'tote' ? 'Why no exact match?' : 'Why is #1 first?');
+  q.push('How much should I trust this?');
+  if (state.tab !== 'outfits') q.push('Style it for me');
+  el.innerHTML = q.slice(0, 4).map(s => `<button class="qr" data-act="quick" data-arg="${esc(s)}">${esc(s)}</button>`).join('');
+}
+
