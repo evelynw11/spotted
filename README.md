@@ -95,3 +95,15 @@ spotted-demo.html   Self-contained single-file demo
 docs/screenshots/   Screenshots used in this README
 ```
 
+## Roadmap: making it real
+
+The places to swap in real models are marked with `// LIVE:` in `app.js`.
+
+| Prototype piece | Real version |
+|---|---|
+| `ITEMS` (detected pieces, boxes, attributes, confidence) | Gemini vision, returning JSON with boxes, attributes and a confidence per attribute |
+| `PRODUCTS` (shopping matches) | Google Lens via SerpAPI on each cropped piece |
+| `OUTFITS` and assistant replies | An LLM (e.g. Gemini free tier) given the attributes and the user's preferences |
+| `handleUserText` keyword parser | An LLM call that returns structured preference updates |
+| Upload button (currently runs the demo photo) | Real upload, with on-device face blurring before anything is sent |
+
