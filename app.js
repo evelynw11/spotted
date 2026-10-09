@@ -308,3 +308,29 @@ function prefSummary() {
   return out;
 }
 
+/* ---------- AI copy (scripted) ---------- */
+// LIVE: these would come from an LLM given the ranked list + preference state.
+function effectSummary() {
+  const R = ranked(state.item), it = ITEMS[state.item], P = state.prefs, parts = [];
+  const top = R.visible[0];
+  if (top) parts.push(`Top similar pick is now <b>${esc(top.p.title)}</b> (${money(top.p.price)}${top.p.kind === 'secondhand' ? ', secondhand' : top.p.sustain.level === 'good' ? ', sustainable' : ''}).`);
+  if (P.style === 'secondhand' && top && top.p.kind !== 'secondhand') {
+    const i = R.visible.findIndex(x => x.p.kind === 'secondhand');
+    if (i > 0) { const x = R.visible[i]; parts.push(`The best secondhand option, <b>${esc(x.p.title)}</b> (${money(x.p.price)}), is #${i + 1} because it looks less like your photo (${x.m.nMatch} of ${x.m.n} details). I boosted it, but not above much closer matches.`); }
+    else if (i === -1) parts.push(`I couldn't find a secondhand ${ITEMS[state.item].label.toLowerCase()} that looks like yours yet.`);
+  }
+  if (P.length === 'longer' && top && ['cardigan', 'skirt'].includes(state.item)) {
+    const isLong = x => x.p.attrs.length === 'hip' || x.p.attrs.slen === 'knee';
+    const i = R.visible.findIndex(isLong);
+    if (i > 0) { const x = R.visible[i]; parts.push(`The longest option, <b>${esc(x.p.title)}</b>, is #${i + 1}: I boosted it, but it looks less like your photo (${x.m.nMatch} of ${x.m.n} details).`); }
+  }
+  if (P.budget != null) {
+    const all = PRODUCTS.filter(p => p.item === state.item), ok = all.filter(p => p.price <= P.budget).length;
+    parts.push(`${ok} of ${all.length} ${it.label.toLowerCase()} options fit a $${P.budget} budget.`);
+    const ex = R.same.find(x => x.p.price > P.budget);
+    if (ex) parts.push(`Heads up: the likely-exact one is ${money(ex.p.price)}, over your budget. I kept it under Same item (marked) instead of hiding it, in case it's worth the splurge.`);
+  }
+  const hid = R.hiddenAll.length;
+  if (hid) parts.push(`${hid} ${hid > 1 ? 'are' : 'is'} hidden, but you can still show ${hid > 1 ? 'them' : 'it'} at the bottom of Similar.`);
+  return parts.join(' ') || 'Done. Nothing moved for this piece.';
+}
