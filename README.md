@@ -111,3 +111,6 @@ The places to swap in real models are marked with `// LIVE:` in `app.js`.
 
 Built as a project prototype for **05-318 Human-AI Interaction** at Carnegie Mellon University (Fall 2026).
 
+## Disclaimer
+
+All brands, stores, prices and listings in this demo are fictional. All images were generated with AI for demonstration purposes and do not depict real people or real products.
