@@ -154,3 +154,16 @@ const PRODUCTS = [
 ];
 const byId = id => PRODUCTS.find(p => p.id === id);
 
+// LIVE: generate with an LLM from the detected attributes + user preferences.
+const OUTFITS = [
+  { img: 'o1', vibe: 'Casual', title: 'Weekend coffee run',
+    why: 'Cool blue denim balances the warm cream, and sneakers make the preppy cardigan feel relaxed.',
+    pieces: [['The cardigan', 'found'], ['Light-wash straight jeans', 'own'], ['White sneakers', 'own'], ['Small gold hoops', 'shop']] },
+  { img: 'o2', vibe: 'Dressy', title: 'Dinner downtown',
+    why: 'Satin next to chunky knit is a classic texture contrast. Black keeps the cream from looking too sweet.',
+    pieces: [['The cardigan', 'found'], ['Black satin slip skirt', 'shop'], ['Black ballet flats', 'own'], ['Mini shoulder bag', 'own']] },
+  { img: 'o3', vibe: 'Polished', title: 'Presentation day',
+    why: 'Wide-leg trousers balance the cropped length. Brown leather picks up the browns from the original plaid.',
+    pieces: [['The cardigan', 'found'], ['Charcoal wide-leg trousers', 'shop'], ['Brown loafers', 'own'], ['Thin leather belt', 'own']] },
+];
+
