@@ -1036,3 +1036,6 @@ document.addEventListener('change', e => {
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.modal) ACTIONS.closeModal(); });
 
+/* ---------- boot ---------- */
+document.head.insertAdjacentHTML('beforeend', `<style>.hero-bg{background-image:url("${IMG('hero')}")}</style>`);
+render();
