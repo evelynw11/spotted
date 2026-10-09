@@ -350,3 +350,16 @@ function explainItem(k) {
 }
 const TRUST = "Trust me most on what's clearly visible: color, pattern, shape, and details like buttons. Double-check what a photo can't show: fabric, the true shade, sizing, and whether a plain item is really the same brand. Each result has a <b>Before you buy</b> note with what to verify.";
 
+function greet() {
+  aiSay(`I found <b>4 pieces</b> in your photo. I'm most sure about the <b>cardigan</b> and least sure about the <b>loafers</b>, which are small and at an angle.<br><br>Good news: Mabel &amp; Co.'s <b>Pearl Button Cropped Cable Cardigan</b> ($78) looks like the same item. All 5 visible details match.<br><br>Anything I should keep in mind? A budget, your size, or secondhand / sustainable options?`, null, 900);
+}
+function onItemVisit(k) {
+  if (state.visited[k]) return; state.visited[k] = true;
+  const msg = {
+    skirt: "The skirt looks like Wren Studio's <b>Plaid Pleated Mini Skirt</b> ($56). I couldn't see the waistband well because the cardigan covers it, so check the listing's close-ups.",
+    tote: "Heads up on the tote: it's plain with no logo, so I <b>won't call anything an exact match</b>. The one I found is a lookalike.",
+    loafers: "Heads up: I'm only <b>58% sure</b> about the loafers. They're small and at an angle, so treat these results as ideas, not the exact pair.",
+  }[k];
+  if (msg) aiSay(msg, null, 600);
+}
+
