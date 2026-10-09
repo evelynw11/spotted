@@ -221,3 +221,24 @@ const matchLabel = pct => pct >= 85 ? 'Likely the same item' : pct >= 70 ? 'Very
 const dotsHtml = rows => `<span class="dots">${rows.map(r => `<i class="d d-${r.status}" title="${esc(r.a.label)}: ${r.status === 'match' ? 'matches' : r.status === 'partial' ? 'close' : 'different'}"></i>`).join('')}</span>`;
 const isClothing = p => ['cardigan', 'skirt'].includes(p.item);
 
+function prefEffects(p) {
+  const P = state.prefs; let adj = 0; const chips = []; let hidden = null;
+  if (state.hidden.includes(p.id)) hidden = 'you passed on it';
+  if (p.kind === 'fast' && P.fast === 'hide') hidden = hidden || 'ultra-fast fashion';
+  if (P.budget != null) {
+    if (p.price > P.budget) { const over = p.price - P.budget; adj -= 30 + over; chips.push(['warn', `${money(Math.round(over))} over budget`]); }
+    else chips.push(['good', 'Within budget']);
+  }
+  if (P.style === 'secondhand' && p.kind === 'secondhand') { adj += 15; chips.push(['good', 'Secondhand']); }
+  if (P.style === 'sustainable' && p.sustain.level === 'good') { adj += 12; chips.push(['good', 'Sustainable pick']); }
+  if (p.kind === 'fast' && P.fast === 'lower') { adj -= 25; chips.push(['warn', 'Fast fashion, ranked lower']); }
+  if (P.size && isClothing(p)) {
+    if (!p.sizes.includes(P.size)) { adj -= 15; chips.push(['warn', `Not in size ${P.size}`]); }
+    else chips.push(['good', `Has size ${P.size}`]);
+  }
+  if (P.length === 'longer' && isClothing(p)) {
+    if (p.attrs.length === 'hip' || p.attrs.slen === 'knee') { adj += 18; chips.push(['good', 'Longer, like you asked']); } else adj -= 4;
+  }
+  if (P.lessBrands.includes(p.brand)) { adj -= 20; chips.push(['muted', `Less ${p.brand}`]); }
+  return { adj, chips, hidden };
+}
