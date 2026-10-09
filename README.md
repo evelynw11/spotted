@@ -16,3 +16,7 @@ You see a cute outfit on the way to class. You want it, but asking a stranger wh
 
 Reverse image search can find visually similar items, but it can't take into account what *you* care about, such as a budget, buying secondhand, or avoiding fast fashion. It also doesn't tell you how confident it is or why a result matched.
 
+## Who it's for
+
+People (especially students) who want to buy clothing they've seen in person or online, but don't know what it is or where to find it.
+
