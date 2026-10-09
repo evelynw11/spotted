@@ -83,3 +83,15 @@ If you edit the code, rebuild the single-file version with Node:
 node build.js            # writes spotted-demo.html with CSS, JS and images inlined
 ```
 
+## Project structure
+
+```
+index.html          App shell
+styles.css          All styles
+app.js              Demo data, matching and ranking, assistant, views, events
+img/                AI-generated demo photos (street photo, products, outfit flat lays)
+build.js            Bundles everything into spotted-demo.html
+spotted-demo.html   Self-contained single-file demo
+docs/screenshots/   Screenshots used in this README
+```
+
