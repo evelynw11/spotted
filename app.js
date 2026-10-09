@@ -769,3 +769,35 @@ function passPopover(p) {
   return `<div class="pop"><div class="pop-head">What's off? <button class="icon-btn" data-act="closePop">${ic('x', 14)}</button></div>${r.map(([k, l]) => `<button data-act="passReason" data-arg="${p.id}|${k}">${l}</button>`).join('')}</div>`;
 }
 
+function viewOutfits() {
+  const keys = Object.keys(ITEMS);
+  const picks = keys.map(k => {
+    const R = ranked(k);
+    const exact = R.same[0] ? R.same[0].p : null;
+    const pick = [...R.same, ...R.visible].sort((a, b) => b.score - a.score)[0];
+    return { k, exact, pick: pick ? pick.p : null };
+  });
+  const exN = picks.filter(x => x.exact).length;
+  const exTotal = picks.reduce((s, x) => s + (x.exact ? x.exact.price : 0), 0);
+  const pkTotal = picks.reduce((s, x) => s + (x.pick ? x.pick.price : 0), 0);
+  const prefs = prefSummary();
+  return `${note('outfits')}
+    <div class="panel">
+      <div class="panel-head"><h3>Recreate the whole look</h3><span class="muted small">${prefs.length ? `Your picks use: ${esc(prefs.join(', '))}` : 'Set a budget or preferences to change your picks'}</span></div>
+      <table class="look-table">
+        <thead><tr><th>Piece</th><th>Likely exact</th><th>Top pick for you</th></tr></thead>
+        <tbody>${picks.map(x => `<tr>
+          <td><div class="look-piece">${crop(ITEMS[x.k].box, 'crop-sm')}<span>${ITEMS[x.k].label}</span></div></td>
+          <td>${x.exact ? `${esc(x.exact.brand)} · <b>${money(x.exact.price)}</b>` : '<span class="muted">No confident match</span>'}</td>
+          <td>${x.pick ? `<div class="look-pick"><img src="${IMG(x.pick.id)}" alt=""><span>${esc(x.pick.brand)} · <b>${money(x.pick.price)}</b>${x.pick.kind === 'secondhand' ? ' <span class="pc pc-good">Secondhand</span>' : ''}</span></div>` : '<span class="muted">None</span>'}</td>
+        </tr>`).join('')}</tbody>
+        <tfoot><tr><td>Total</td><td>${money(Math.round(exTotal * 100) / 100)} <span class="muted small">(${exN} of ${keys.length} pieces)</span></td><td>${money(Math.round(pkTotal * 100) / 100)}</td></tr></tfoot>
+      </table>
+    </div>
+    <div class="outfit-head"><h3>Ways to wear the cardigan</h3><span class="ai-label">${ic('sparkle', 12)} AI styling ideas, not verified products</span></div>
+    <div class="outfits">${OUTFITS.map(o => `<article class="outfit"><img src="${IMG(o.img)}" alt="${esc(o.title)}"><div class="outfit-body">
+      <span class="vibe">${o.vibe}</span><h4>${esc(o.title)}</h4><p>${esc(o.why)}</p>
+      <ul class="pieces">${o.pieces.map(([n, t]) => `<li><span class="pt pt-${t}">${t === 'found' ? 'Found' : t === 'own' ? 'You may own' : 'Shop'}</span>${esc(n)}</li>`).join('')}</ul>
+      <button class="btn btn-sm" data-act="shopLook">Find the missing pieces</button></div></article>`).join('')}</div>`;
+}
+
