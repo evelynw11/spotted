@@ -341,3 +341,9 @@ body.notes-on .dnote b{display:block;font-size:10.5px;text-transform:uppercase;l
 .typing i:nth-child(3){animation-delay:.3s}
 @keyframes blink{50%{opacity:.3}}
 
+/* ---------- modal + toast ---------- */
+.modal-bg{position:fixed;inset:0;background:rgba(25,18,12,.45);display:grid;place-items:center;z-index:50;animation:fade .2s}
+@keyframes fade{from{opacity:0}}
+.modal{background:#fff;border-radius:20px;width:min(780px,92vw);max-height:90vh;overflow:auto;padding:20px 22px;box-shadow:0 30px 80px rgba(0,0,0,.3);cursor:default}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.modal-head h3{font-family:var(--serif);font-weight:500;font-size:23px}
