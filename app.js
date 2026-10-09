@@ -292,3 +292,19 @@ function undoLast() {
   renderAll();
   aiSay(`Undone. Everything is back to how it was before "${esc(e.text)}".`, null, 450);
 }
+function prefSummary() {
+  const P = state.prefs, out = [];
+  if (P.budget != null) out.push(`under $${P.budget}`);
+  if (P.style === 'secondhand') out.push('secondhand first');
+  if (P.style === 'sustainable') out.push('sustainable first');
+  if (P.fast === 'lower') out.push('fast fashion lower');
+  if (P.fast === 'hide') out.push('no ultra-fast fashion');
+  if (P.size) out.push(`size ${P.size}`);
+  if (P.length === 'longer') out.push('longer length');
+  P.lessBrands.forEach(b => out.push(`less ${b}`));
+  if (P.shapeBoost) out.push('shape matters more');
+  if (P.colorFlex) out.push('open to other colors');
+  for (const [k, on] of Object.entries(state.locks)) if (on) { const [it, key] = k.split('.'); if (it === state.item) out.push(`must have ${LABELS[state.attrValues[it][key]].toLowerCase()}`); }
+  return out;
+}
+
