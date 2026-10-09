@@ -207,3 +207,10 @@ body.notes-on .dnote b{display:block;font-size:10.5px;text-transform:uppercase;l
 .more-teaser .thumbs img{width:40px;height:40px;border-radius:10px;object-fit:cover;border:2px solid #fff;margin-left:-8px}
 .more-teaser .thumbs img:first-child{margin-left:0}
 
+.dots{display:inline-flex;gap:3px}
+.d{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--good);display:inline-block}
+.d-match{background:var(--good)}
+.d-partial{background:linear-gradient(90deg,var(--good) 50%,transparent 50%)}
+.d-diff{border-color:#c9bcac}
+.match{display:flex;align-items:center;gap:7px;font-size:12.5px;margin-top:8px;flex-wrap:wrap}
+
