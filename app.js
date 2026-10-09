@@ -167,3 +167,17 @@ const OUTFITS = [
     pieces: [['The cardigan', 'found'], ['Charcoal wide-leg trousers', 'shop'], ['Brown loafers', 'own'], ['Thin leather belt', 'own']] },
 ];
 
+const NOTES = {
+  privacy: ['Privacy', 'Faces and bystanders are blurred on-device before analysis. The product searches for clothes, never for people.'],
+  detect: ['Trust calibration', 'Each detected piece shows a confidence level, so a weak detection (the loafers) is flagged before the user sees any results.'],
+  perceive: ['Explainability + error recovery', 'Users see what the AI perceived and can fix it or lock must-haves. "The AI saw it wrong" is kept separate from "I want something different".'],
+  match: ['Explainability', 'Match strength is shown as which visible details match (dots), not one opaque score. "Why this match" lists each detail.'],
+  verify: ['Appropriate reliance', 'Every result says what the AI could not verify, so users know when to check for themselves instead of trusting blindly.'],
+  prefs: ['Dynamic alignment', 'Preferences the user stated are labeled separately from ones the AI inferred from feedback. Inferred ones need a Keep or Remove.'],
+  rerank: ['Transparency', 'After every preference change, results show what moved and why, and the change can be undone.'],
+  chat: ['Dynamic alignment', 'The assistant asks before turning feedback into a preference (for example "Should I cap your budget?").'],
+  outfits: ['Minimum goal', 'LLM outfit ideas built around the found piece, clearly labeled as suggestions, not verified products.'],
+  empty: ['Appropriate reliance', 'When the AI cannot confirm an exact match, it says so instead of guessing, and tells the user what they can do.'],
+};
+const note = k => `<div class="dnote">${ic('sparkle', 13)}<div><b>${NOTES[k][0]}</b>${NOTES[k][1]}</div></div>`;
+
