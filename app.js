@@ -621,3 +621,27 @@ function attrRow(a) {
   </li>`;
 }
 
+function renderCenter() {
+  const el = $('#colCenter'); if (!el) return; const st = el.scrollTop;
+  const it = ITEMS[state.item], R = ranked(state.item);
+  const sameN = R.same.length, simN = R.visible.length;
+  const summary = state.tab === 'outfits' ? 'Styling ideas built around the cardigan, plus the cost of recreating the whole look.'
+    : `${sameN ? `${sameN} likely exact match` : 'No confident exact match'} and ${simN} similar ${simN === 1 ? 'item' : 'items'}${R.hiddenAll.length ? ` (${R.hiddenAll.length} hidden)` : ''}.`;
+  const tabs = [['same', 'Same item', sameN], ['similar', 'Similar', simN], ['outfits', 'Outfit ideas', OUTFITS.length]];
+  el.innerHTML = `
+    <div class="center-head">
+      <div class="eyebrow">Searching for</div>
+      <h2>${state.tab === 'outfits' ? 'Cropped cream cable-knit cardigan' : esc(it.name)}</h2>
+      <p class="muted">${summary}</p>
+    </div>
+    ${state.rerank && state.tab !== 'outfits' ? `
+      ${note('rerank')}
+      <div class="rerank">${ic('refresh', 15)}<span>Re-ranked after <b>${esc(state.rerank.text)}</b>.${state.rerank.moved ? ` ${state.rerank.moved} moved.` : ''}${state.rerank.removed ? ` ${state.rerank.removed} hidden.` : ''}${prefSummary().length ? ` Now optimizing for: ${esc(prefSummary().join(', '))}.` : ''}</span><span class="spacer"></span><button class="link" data-act="whyRerank">Explain</button><button class="icon-btn" data-act="dismissRerank" title="Dismiss">${ic('x', 14)}</button></div>` : ''}
+    <div class="tabs-row">
+      <div class="tabs">${tabs.map(([k, l, n]) => `<button class="tab ${state.tab === k ? 'on' : ''}" data-act="tab" data-arg="${k}">${l}<span class="n">${n}</span></button>`).join('')}</div>
+      ${state.tab === 'similar' ? `<label class="sort">Sort by <select data-sort>${[['best', 'Best for you'], ['look', 'Closest look'], ['price', 'Lowest price'], ['sustain', 'Most sustainable']].map(([v, l]) => `<option value="${v}" ${state.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>` : ''}
+    </div>
+    <div id="tabBody">${state.tab === 'same' ? viewSame(R) : state.tab === 'similar' ? viewSimilar(R) : viewOutfits()}</div>`;
+  el.scrollTop = st;
+}
+
