@@ -61,3 +61,9 @@ People (especially students) who want to buy clothing they've seen in person or 
 | **Error recovery** | You can correct what the AI *saw* ("the color is actually beige") separately from what you *want* ("show me other colors"), and lock must-have details. |
 | **Privacy** | Faces and bystanders are blurred before analysis. Spotted searches for clothes, never for people. |
 
+## How the prototype works
+
+- **Matching:** Each detected piece has a set of attributes (color, knit, neckline, buttons, length...). Each listing is scored detail by detail (same / close / different), weighted, and labeled *Likely the same item*, *Very close*, *Similar* or *Same vibe*.
+- **Ranking:** Visual match counts most. Preferences (budget, secondhand or sustainable, size, fast fashion, "longer") then move items up or down, or hide them. Hidden items can always be shown again.
+- **Assistant:** A small keyword parser turns chat messages into preference updates, and scripted responses explain the effect of each change.
+
