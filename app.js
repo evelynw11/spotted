@@ -63,3 +63,48 @@ const HERO_RATIO = 733 / 1100; // width / height of hero.jpg
 const BLURS = [{ l: 45.2, t: 7.2, w: 13.6, h: 10.4 }, { l: 81, t: 28.2, w: 6.6, h: 4.8 }];
 
 // LIVE: replace ITEMS with the output of a vision model (Gemini) that returns boxes + attributes + confidence.
+const ITEMS = {
+  cardigan: {
+    label: 'Cardigan', name: 'Cropped cream cable-knit cardigan', conf: 94, box: { l: 28.5, t: 20.5, w: 43, h: 30 },
+    confNote: 'Front-facing, well lit, and a big part of the photo, so I can see most details.',
+    attrs: [
+      { key: 'color', label: 'Color', value: 'cream', conf: 'high', w: 2, note: 'Warm afternoon light can make white look creamier.', options: ['cream', 'ivory', 'white', 'beige'] },
+      { key: 'knit', label: 'Knit', value: 'cable', conf: 'high', w: 2, options: ['cable', 'chunky', 'ribbed'] },
+      { key: 'neck', label: 'Neckline', value: 'v', conf: 'high', w: 1, options: ['v', 'crew'] },
+      { key: 'buttons', label: 'Buttons', value: 'pearl', conf: 'med', w: 1.5, note: 'Partly hidden by hair. I count 5.', options: ['pearl', 'mop', 'gold', 'tortoise', 'plastic'] },
+      { key: 'length', label: 'Length', value: 'cropped', conf: 'high', w: 1.5, options: ['cropped', 'hip'] },
+      { key: 'material', label: 'Material', value: 'unknown', conf: 'low', w: 0, note: "Fabric content isn't visible in a photo. Check each listing's label.", options: [] },
+    ],
+  },
+  skirt: {
+    label: 'Skirt', name: 'Brown plaid pleated mini skirt', conf: 88, box: { l: 34.2, t: 38.3, w: 30.8, h: 17 }, lbl: 'r',
+    confNote: 'Clearly visible, but the waistband is partly covered by the cardigan.',
+    attrs: [
+      { key: 'pattern', label: 'Pattern', value: 'brownplaid', conf: 'high', w: 2, note: 'Colors are clear. The exact plaid repeat is hard to confirm.', options: ['brownplaid', 'beigeplaid'] },
+      { key: 'pleats', label: 'Pleats', value: 'knife', conf: 'high', w: 1.5, options: ['knife', 'kilt', 'none'] },
+      { key: 'slen', label: 'Length', value: 'mini', conf: 'high', w: 1.5, options: ['mini', 'knee'] },
+      { key: 'waist', label: 'Waist', value: 'plainwb', conf: 'med', w: .5, note: 'Partly covered by the cardigan.', options: ['plainwb', 'buckle', 'zip'] },
+      { key: 'material', label: 'Material', value: 'unknown', conf: 'low', w: 0, note: "Looks brushed and woven, but I can't tell wool from polyester.", options: [] },
+    ],
+  },
+  tote: {
+    label: 'Tote bag', name: 'Natural canvas tote', conf: 71, box: { l: 23.5, t: 33, w: 17, h: 22 }, lbl: 'b', noExact: true,
+    confNote: 'Easy to see, but plain totes with no logo look almost identical across hundreds of brands.',
+    attrs: [
+      { key: 'tcolor', label: 'Color', value: 'natural', conf: 'high', w: 1, options: [] },
+      { key: 'tmat', label: 'Material', value: 'canvas', conf: 'med', w: 1, options: [] },
+      { key: 'logo', label: 'Branding', value: 'nologo', conf: 'med', w: 0, note: 'The side facing the camera has no logo. The other side might.', options: [] },
+    ],
+  },
+  loafers: {
+    label: 'Loafers', name: 'Black penny loafers', conf: 58, box: { l: 36, t: 73.5, w: 25.5, h: 20.5 },
+    confNote: 'Small in the photo (about 5% of it) and seen at an angle, so details like the sole are a guess.',
+    attrs: [
+      { key: 'lcolor', label: 'Color', value: 'black', conf: 'high', w: 1, options: [] },
+      { key: 'lstyle', label: 'Style', value: 'penny', conf: 'med', w: 1.5, options: [] },
+      { key: 'sole', label: 'Sole', value: 'lug', conf: 'low', w: 1, note: 'Hard to see at this angle.', options: ['lug', 'flat'] },
+    ],
+  },
+};
+
+// LIVE: replace PRODUCTS with Google Lens (SerpAPI) visual matches + shopping results.
