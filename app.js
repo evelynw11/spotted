@@ -855,3 +855,33 @@ function renderQuick() {
   el.innerHTML = q.slice(0, 4).map(s => `<button class="qr" data-act="quick" data-arg="${esc(s)}">${esc(s)}</button>`).join('');
 }
 
+function renderModal() {
+  const root = $('#modalRoot'); const md = state.modal;
+  if (!md) { root.innerHTML = ''; return; }
+  let inner = '';
+  if (md.type === 'compare') {
+    const p = byId(md.id), m = matchInfo(p), it = ITEMS[p.item];
+    const unknownAttrs = it.attrs.filter(a => !a.w);
+    inner = `<div class="modal-head"><h3>Compare side by side</h3><button class="icon-btn" data-act="closeModal">${ic('x')}</button></div>
+      <div class="cmp">
+        <figure><div class="crop-wrap">${crop(it.box)}</div><figcaption>Your photo <span class="muted">· cropped · ${it.conf}% sure this is a ${it.label.toLowerCase()}</span></figcaption></figure>
+        <figure><div class="crop-wrap"><img src="${IMG(p.id)}" alt=""></div><figcaption>${esc(p.brand)} <span class="muted">· ${esc(p.title)} · ${money(p.price)}</span></figcaption></figure>
+      </div>
+      <table class="cmp-table"><thead><tr><th>Detail</th><th>Your photo</th><th>This listing</th><th>Match</th></tr></thead><tbody>
+        ${m.rows.map(r => `<tr class="st-${r.status}"><td>${r.a.label}</td><td>${esc(LABELS[r.target])} <span class="conf conf-${state.corrected[`${p.item}.${r.a.key}`] ? 'you' : r.a.conf}"></span></td><td>${esc(LABELS[r.pv])}</td><td>${statusIcon(r.status)} ${r.status === 'match' ? 'Same' : r.status === 'partial' ? 'Close' : 'Different'}</td></tr>`).join('')}
+        ${unknownAttrs.map(a => `<tr class="st-unknown"><td>${a.label}</td><td class="muted">${esc(LABELS[state.attrValues[p.item][a.key]])}</td><td>${a.key === 'material' ? esc(p.material) : '?'}</td><td>${statusIcon('unknown')} Can't tell</td></tr>`).join('')}
+      </tbody></table>
+      <div class="cant"><b>Things only you can check</b><ul><li>Fabric feel and quality</li><li>The true color in daylight (photos shift color)</li><li>Fit on your body: check the size chart and return policy</li><li>${esc(p.verify)}</li></ul></div>
+      <div class="modal-actions"><button class="btn" data-act="closeModal">Back to results</button><button class="btn btn-primary" data-act="store" data-arg="${p.id}">View at ${esc(p.store)} ${ic('external', 14)}</button></div>`;
+  } else if (md.type === 'saved') {
+    const items = state.saved.map(byId);
+    inner = `<div class="modal-head"><h3>Saved (${items.length})</h3><button class="icon-btn" data-act="closeModal">${ic('x')}</button></div>
+      ${items.length ? `<div class="saved-list">${items.map(p => `<div class="saved-row"><img src="${IMG(p.id)}" alt=""><div><span class="brand">${esc(p.brand)}</span><div><b>${esc(p.title)}</b></div><div class="muted small">${money(p.price)} · ${esc(p.store)}</div></div><button class="btn btn-sm" data-act="store" data-arg="${p.id}">Store ${ic('external', 13)}</button><button class="icon-btn" data-act="save" data-arg="${p.id}" title="Remove">${ic('x', 14)}</button></div>`).join('')}</div>` : '<p class="muted">Nothing saved yet. Tap the heart on any result.</p>'}`;
+  } else if (md.type === 'upload') {
+    inner = `<div class="modal-head"><h3>Prototype note</h3><button class="icon-btn" data-act="closeModal">${ic('x')}</button></div>
+      <div class="upload-prev"><img src="${md.url}" alt="Your upload"><div><p><b>${esc(md.name)}</b></p><p class="muted" style="margin-top:6px">Live image analysis isn't connected in this prototype yet. To show the full experience, I'll run the scripted demo photo instead.</p><p class="muted small" style="margin-top:8px">In the full version, this photo would go to a vision model (Gemini) for detection and to Google Lens for product matches.</p></div></div>
+      <div class="modal-actions"><button class="btn" data-act="closeModal">Cancel</button><button class="btn btn-primary" data-act="useSample">Run the demo ${ic('arrow', 14)}</button></div>`;
+  }
+  root.innerHTML = `<div class="modal-bg" data-act="closeModal"><div class="modal" data-act="noop">${inner}</div></div>`;
+}
+
