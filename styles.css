@@ -271,3 +271,27 @@ body.notes-on .dnote b{display:block;font-size:10.5px;text-transform:uppercase;l
 .crop{background-repeat:no-repeat;border-radius:10px;width:100%;display:block}
 .crop-sm{height:38px;width:auto;flex:none;border-radius:8px}
 
+.look-table{width:100%;border-collapse:collapse;font-size:13px}
+.look-table th{text-align:left;font-size:11.5px;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line)}
+.look-table td{padding:8px;border-bottom:1px solid var(--soft);vertical-align:middle}
+.look-table tfoot td{border:0;font-weight:600;padding-top:10px}
+.look-piece,.look-pick{display:flex;align-items:center;gap:10px}
+.look-pick img{width:38px;height:38px;border-radius:8px;object-fit:cover}
+.outfit-head{display:flex;align-items:center;justify-content:space-between;margin:24px 0 12px}
+.outfit-head h3{font-family:var(--serif);font-weight:500;font-size:21px}
+.ai-label{font-size:11.5px;font-weight:600;color:var(--you);background:var(--you-soft);padding:3px 9px;border-radius:999px;display:inline-flex;gap:4px;align-items:center}
+.outfits{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.outfit{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.outfit img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.outfit-body{padding:12px;display:flex;flex-direction:column;gap:6px;flex:1}
+.vibe{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--accent)}
+.outfit h4{font-size:15px}
+.outfit p{font-size:12.5px;color:var(--muted)}
+.pieces{list-style:none;padding:0;margin:4px 0 8px;display:grid;gap:5px;font-size:12.5px}
+.pieces li{display:flex;gap:6px;align-items:center}
+.pt{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:5px;text-transform:uppercase;letter-spacing:.03em;flex:none}
+.pt-found{background:var(--accent-soft);color:var(--accent)}
+.pt-own{background:var(--soft);color:var(--muted)}
+.pt-shop{background:var(--you-soft);color:var(--you)}
+.outfit .btn{margin-top:auto;align-self:flex-start}
+
