@@ -729,3 +729,38 @@ function viewSimilar(R) {
   return html;
 }
 
+function card(x) {
+  const { p, m, e } = x; const mv = state.moves[p.id]; const exp = state.expanded.includes(p.id);
+  const hidden = e.hidden || x.lockFails.length;
+  return `<article class="card ${hidden ? 'is-hidden' : ''}">
+    <div class="card-img"><img src="${IMG(p.id)}" alt="${esc(p.title)}">
+      ${kindTag(p)}
+      ${mv ? `<span class="move ${mv === 'new' ? 'new' : mv > 0 ? 'up' : 'down'}">${mv === 'new' ? 'new' : (mv > 0 ? '▲ ' : '▼ ') + Math.abs(mv)}</span>` : ''}
+      <button class="heart ${state.saved.includes(p.id) ? 'on' : ''}" data-act="save" data-arg="${p.id}" title="Save">${ic('heart', 16)}</button>
+    </div>
+    <div class="card-body">
+      <div class="row-between"><span class="brand">${esc(p.brand)}</span><span class="price">${money(p.price)}</span></div>
+      <h4>${esc(p.title)}</h4>
+      <div class="store">${esc(p.store)} · checked ${p.checked}</div>
+      <div class="match">${dotsHtml(m.rows)}<b>${matchLabel(m.pct)}</b><span class="muted">${m.nMatch}/${m.n} details</span></div>
+      ${e.chips.length ? `<div class="pchips">${e.chips.map(([t, l]) => `<span class="pc pc-${t}">${esc(l)}</span>`).join('')}</div>` : ''}
+      ${hidden ? `<div class="hidden-why">Hidden: ${esc(hideReason(x))}${state.hidden.includes(p.id) ? ` · <button class="link" data-act="unhide" data-arg="${p.id}">bring back</button>` : ''}</div>` : ''}
+      <div class="verify"><b>Before you buy:</b> ${esc(p.verify)}</div>
+      <button class="why-toggle" data-act="toggleWhy" data-arg="${p.id}">${exp ? 'Hide details' : 'Why this match?'}</button>
+      ${exp ? `<div class="why">
+        <ul class="why-rows">${m.rows.map(r => `<li class="st-${r.status}">${statusIcon(r.status)}<span><b>${r.a.label}:</b> ${esc(LABELS[r.pv])}${r.status !== 'match' ? ` <span class="muted">(yours: ${esc(LABELS[r.target])})</span>` : ''}</span></li>`).join('')}
+          <li class="st-unknown">${statusIcon('unknown')}<span><b>Material:</b> ${esc(p.material)} <span class="muted">(can't compare from a photo)</span></span></li></ul>
+        <div class="sus sus-${p.sustain.level}">${ic('leaf', 13)}<span>${esc(p.sustain.note)}</span></div>
+        <div class="muted small" style="margin-top:6px">${m.pct}% visual match${x.e.adj ? `, ${x.e.adj > 0 ? '+' : ''}${Math.round(x.e.adj)} from your preferences` : ''}.</div>
+      </div>` : ''}
+      <div class="card-actions">
+        <button class="btn btn-sm" data-act="compare" data-arg="${p.id}">${ic('compare', 14)} Compare</button>
+        <button class="icon-btn" data-act="store" data-arg="${p.id}" title="View at store">${ic('external', 15)}</button>
+        <span class="spacer"></span>
+        <button class="icon-btn ${state.liked.includes(p.id) ? 'on-good' : ''}" data-act="up" data-arg="${p.id}" title="More like this">${ic('up', 15)}</button>
+        <button class="icon-btn" data-act="down" data-arg="${p.id}" title="Not for me">${ic('down', 15)}</button>
+      </div>
+    </div>
+    ${state.popover === p.id ? passPopover(p) : ''}
+  </article>`;
+}
