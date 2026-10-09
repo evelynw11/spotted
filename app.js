@@ -885,3 +885,48 @@ function renderModal() {
   root.innerHTML = `<div class="modal-bg" data-act="closeModal"><div class="modal" data-act="noop">${inner}</div></div>`;
 }
 
+/* ---------- render orchestration ---------- */
+function render() {
+  renderTop();
+  const app = $('#app');
+  if (state.view === 'home') { app.innerHTML = viewHome(); bindDrop(); }
+  else if (state.view === 'analyzing') { app.innerHTML = viewAnalyzing(); updateAnalyzing(); }
+  else { app.innerHTML = wsSkeleton(); bindChat(); renderAll(); }
+  renderModal();
+}
+function renderAll() {
+  if (state.view !== 'workspace') return;
+  renderTop(); renderLeft(); renderCenter(); renderPrefs(); renderChat(); renderModal();
+}
+function bindDrop() {
+  const d = $('#drop'), f = $('#file');
+  f.addEventListener('change', () => { if (f.files[0]) onUpload(f.files[0]); });
+  ['dragover', 'dragenter'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); d.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); d.classList.remove('over'); }));
+  d.addEventListener('drop', e => { const file = e.dataTransfer.files[0]; if (file) onUpload(file); });
+}
+function onUpload(file) { state.modal = { type: 'upload', name: file.name, url: URL.createObjectURL(file) }; renderModal(); }
+function bindChat() {
+  $('#chatForm').addEventListener('submit', e => {
+    e.preventDefault(); const inp = $('#chatInput'); const v = inp.value.trim(); if (!v) return; inp.value = ''; handleUserText(v);
+  });
+}
+function startAnalysis() {
+  clearTimeout(timer);
+  state = freshState(); state.view = 'analyzing'; state.step = 0; render();
+  const tick = () => {
+    state.step++; updateAnalyzing();
+    timer = setTimeout(state.step < STEPS.length ? tick : enterWorkspace, state.step < STEPS.length ? 720 : 650);
+  };
+  timer = setTimeout(tick, 650);
+}
+function enterWorkspace() { clearTimeout(timer); state.view = 'workspace'; state.step = STEPS.length; render(); greet(); }
+function pickItem(k, silent) {
+  if (!ITEMS[k]) return;
+  const changed = state.item !== k;
+  state.item = k; state.popover = null; state.editing = null; state.moves = {}; state.rerank = null; state.showHidden = false;
+  if (state.tab === 'outfits' || changed) state.tab = 'same';
+  renderAll();
+  if (!silent) onItemVisit(k); else state.visited[k] = true;
+}
+
