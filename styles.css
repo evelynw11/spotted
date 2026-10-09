@@ -366,3 +366,5 @@ body.notes-on .dnote b{display:block;font-size:10.5px;text-transform:uppercase;l
 .saved-row > div{flex:1}
 .upload-prev{display:flex;gap:16px;align-items:flex-start}
 .upload-prev img{width:120px;max-height:160px;object-fit:cover;border-radius:12px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:80vw}
+.toast.on{opacity:1;transform:translate(-50%,0)}
