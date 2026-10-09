@@ -801,3 +801,33 @@ function viewOutfits() {
       <button class="btn btn-sm" data-act="shopLook">Find the missing pieces</button></div></article>`).join('')}</div>`;
 }
 
+function renderPrefs() {
+  const el = $('#prefPanel'); if (!el) return;
+  const P = state.prefs, M = state.meta;
+  const tag = k => M[k] === 'inferred'
+    ? `<span class="src src-inf" title="I inferred this from your feedback">inferred</span><button class="mini good" data-act="keepPref" data-arg="${k}">Keep</button><button class="mini" data-act="dropPref" data-arg="${k}">Remove</button>`
+    : M[k] === 'said' ? '<span class="src">you set</span>' : '';
+  const sel = (k, opts, val) => `<select data-pref="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(val ?? '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+  const budgetOpts = [['', 'No limit'], ['30', 'Up to $30'], ['50', 'Up to $50'], ['60', 'Up to $60'], ['75', 'Up to $75'], ['100', 'Up to $100']];
+  if (P.budget != null && !budgetOpts.some(o => o[0] === String(P.budget))) budgetOpts.push([String(P.budget), `Up to $${P.budget}`]);
+  const cls = k => M[k] === 'inferred' ? 'inf' : M[k] ? 'set' : '';
+  const extras = [];
+  if (P.length === 'longer') extras.push(['length', 'Longer length']);
+  P.lessBrands.forEach(b => extras.push([`brand:${b}`, `Less ${b}`]));
+  if (P.shapeBoost) extras.push(['shapeBoost', 'Fit & shape matter more']);
+  if (P.colorFlex) extras.push(['colorFlex', 'Open to other colors']);
+  const last = state.log[state.log.length - 1];
+  el.innerHTML = `<div class="panel">
+    <div class="panel-head"><h3>What I'm optimizing for</h3>${Object.keys(M).length ? '<button class="link small" data-act="resetPrefs">Reset</button>' : '<span class="muted small">Nothing set yet</span>'}</div>
+    ${note('prefs')}
+    <div class="pref-grid">
+      <div class="pref ${cls('budget')}"><span class="pref-l">Budget per item ${tag('budget')}</span>${sel('budget', budgetOpts, P.budget)}</div>
+      <div class="pref ${cls('style')}"><span class="pref-l">Shopping style ${tag('style')}</span>${sel('style', [['', 'No preference'], ['secondhand', 'Secondhand first'], ['sustainable', 'Sustainable first']], P.style)}</div>
+      <div class="pref ${cls('size')}"><span class="pref-l">Size ${tag('size')}</span>${sel('size', [['', 'Not set'], ['XS', 'XS'], ['S', 'S'], ['M', 'M'], ['L', 'L'], ['XL', 'XL']], P.size)}</div>
+      <div class="pref ${cls('fast')}"><span class="pref-l">Fast fashion ${tag('fast')}</span>${sel('fast', [['', 'Show normally'], ['lower', 'Rank lower'], ['hide', 'Hide it']], P.fast)}</div>
+    </div>
+    ${extras.length ? `<div class="extras">${extras.map(([k, l]) => `<span class="chip ${M[k] === 'inferred' ? 'chip-inf' : ''}">${esc(l)}${M[k] === 'inferred' ? `<em>inferred</em><button data-act="keepPref" data-arg="${esc(k)}" title="Keep">${ic('check', 12)}</button>` : ''}<button data-act="dropPref" data-arg="${esc(k)}" title="Remove">${ic('x', 12)}</button></span>`).join('')}</div>` : ''}
+    ${last ? `<div class="changes"><span class="muted">Last change:</span> <b>${esc(last.text)}</b> <span class="src ${last.source === 'inferred' ? 'src-inf' : ''}">${last.source === 'inferred' ? 'from feedback' : 'you said'}</span><span class="spacer"></span><button class="link small" data-act="undo">${ic('refresh', 12)} Undo</button></div>` : ''}
+  </div>`;
+}
+
