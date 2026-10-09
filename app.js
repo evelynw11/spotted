@@ -459,3 +459,21 @@ function passReason(id, reason) {
     aiSay("Okay, hidden. If you tell me what's off, I can learn from it, but no pressure.");
   }
 }
+function likeItem(id) {
+  const p = byId(id);
+  if (state.liked.includes(id)) { state.liked = state.liked.filter(x => x !== id); renderAll(); return; }
+  state.liked.push(id); if (!state.saved.includes(id)) state.saved.push(id);
+  renderAll();
+  if (p.kind === 'secondhand' && !state.prefs.style) {
+    aiSay('Nice pick, and it\'s secondhand. Want me to show secondhand options first?', [
+      { label: 'Yes, secondhand first', fn: () => { applyChange(() => { state.prefs.style = 'secondhand'; state.meta.style = 'inferred'; }, 'secondhand first', 'inferred'); aiSay(`Done. ${effectSummary()}`); } },
+      { label: 'No thanks', fn: () => aiSay("Okay, I won't change anything.") },
+    ]);
+  } else if (p.sustain.level === 'good' && !state.prefs.style) {
+    aiSay('Saved. That one is from a certified-sustainable brand. Want me to put sustainable options first?', [
+      { label: 'Yes', fn: () => { applyChange(() => { state.prefs.style = 'sustainable'; state.meta.style = 'inferred'; }, 'sustainable brands first', 'inferred'); aiSay(`Done. ${effectSummary()}`); } },
+      { label: 'No thanks', fn: () => aiSay("Okay, I won't change anything.") },
+    ]);
+  } else aiSay(`Saved <b>${esc(p.title)}</b> to your list.`, null, 500);
+}
+
