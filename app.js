@@ -37,3 +37,25 @@ const ICONS = {
 };
 const ic = (n, s = 16) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]}</svg>`;
 
+/* ---------- demo data ---------- */
+const LABELS = {
+  cream: 'Cream', ivory: 'Ivory', white: 'Bright white', beige: 'Oatmeal / beige',
+  cable: 'Cable knit', chunky: 'Chunky cable', ribbed: 'Fine rib',
+  v: 'V-neck', crew: 'Crew neck',
+  pearl: 'Pearl-style', mop: 'Mother-of-pearl', gold: 'Gold metal', tortoise: 'Tortoiseshell', plastic: 'Plain plastic',
+  cropped: 'Cropped', hip: 'Hip length',
+  brownplaid: 'Brown & cream plaid', beigeplaid: 'Light beige plaid',
+  knife: 'Knife pleats', kilt: 'Kilt pleats (wrap)', none: 'No pleats',
+  mini: 'Mini', knee: 'Knee length',
+  plainwb: 'Plain waistband', buckle: 'Side buckle', zip: 'Side zip',
+  natural: 'Natural / undyed', canvas: 'Heavy canvas', nologo: 'No visible logo',
+  black: 'Black', penny: 'Penny loafer', lug: 'Chunky lug sole', flat: 'Flat sole',
+  unknown: "Can't tell from photo",
+};
+const SIM = {
+  'cream|ivory': .9, 'cream|white': .5, 'cream|beige': .5, 'ivory|white': .7, 'ivory|beige': .5, 'white|beige': .2,
+  'cable|chunky': .6, 'pearl|mop': .75, 'pearl|plastic': .25, 'mop|plastic': .4,
+  'brownplaid|beigeplaid': .6, 'knife|kilt': .8, 'plainwb|buckle': .5, 'plainwb|zip': .7, 'lug|flat': .4,
+};
+const sim = (a, b) => a === b ? 1 : (SIM[a + '|' + b] ?? SIM[b + '|' + a] ?? 0);
+
