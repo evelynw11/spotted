@@ -477,3 +477,14 @@ function likeItem(id) {
   } else aiSay(`Saved <b>${esc(p.title)}</b> to your list.`, null, 500);
 }
 
+/* ---------- small helpers ---------- */
+const confLevel = c => c >= 85 ? 'high' : c >= 65 ? 'med' : 'low';
+const confWord = c => ({ high: 'Sure', med: 'Fairly sure', low: 'Not sure' })[c];
+const pos = b => `left:${b.l}%;top:${b.t}%;width:${b.w}%;height:${b.h}%`;
+const cropStyle = b => `background-size:${(10000 / b.w).toFixed(2)}% ${(10000 / b.h).toFixed(2)}%;background-position:${(b.l / (100 - b.w) * 100).toFixed(2)}% ${(b.t / (100 - b.h) * 100).toFixed(2)}%;aspect-ratio:${(b.w * HERO_RATIO / b.h).toFixed(4)}`;
+const crop = (b, cls = '') => `<div class="crop hero-bg ${cls}" style="${cropStyle(b)}"></div>`;
+const statusIcon = s => `<span class="si">${ic(s === 'match' ? 'check' : s === 'partial' ? 'minus' : s === 'diff' ? 'x' : 'question', 11)}</span>`;
+const kindTag = p => p.kind === 'secondhand' ? `<span class="kind kind-secondhand">${ic('refresh', 12)} Secondhand</span>` : p.kind === 'sustainable' ? `<span class="kind kind-sustainable">${ic('leaf', 12)} Sustainable</span>` : p.kind === 'fast' ? `<span class="kind kind-fast">${ic('alert', 12)} Ultra-fast fashion</span>` : '';
+function toast(msg) { const t = $('#toast'); t.innerHTML = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2800); }
+const toggleIn = (arr, x) => arr.includes(x) ? arr.filter(y => y !== x) : [...arr, x];
+
