@@ -242,3 +242,31 @@ function prefEffects(p) {
   if (P.lessBrands.includes(p.brand)) { adj -= 20; chips.push(['muted', `Less ${p.brand}`]); }
   return { adj, chips, hidden };
 }
+const SUS = { good: 0, ok: 1, poor: 2 };
+const SORTERS = {
+  best: (a, b) => b.score - a.score,
+  look: (a, b) => b.m.pct - a.m.pct,
+  price: (a, b) => a.p.price - b.p.price,
+  sustain: (a, b) => SUS[a.p.sustain.level] - SUS[b.p.sustain.level] || b.m.pct - a.m.pct,
+};
+function ranked(item) {
+  const all = PRODUCTS.filter(p => p.item === item).map(p => {
+    const m = matchInfo(p), e = prefEffects(p);
+    const lockFails = m.rows.filter(r => state.locks[`${item}.${r.a.key}`] && r.status === 'diff');
+    return { p, m, e, lockFails, score: m.pct + e.adj };
+  });
+  const canExact = !ITEMS[item].noExact;
+  const sameAll = all.filter(x => canExact && x.m.pct >= 85);
+  const same = sameAll.filter(x => !x.e.hidden);
+  const sameHidden = sameAll.filter(x => x.e.hidden);
+  const rest = all.filter(x => !sameAll.includes(x));
+  const hiddenPrefs = rest.filter(x => x.e.hidden);
+  const hiddenLocks = rest.filter(x => !x.e.hidden && x.lockFails.length);
+  const visible = rest.filter(x => !x.e.hidden && !x.lockFails.length).sort(SORTERS[state.sort]);
+  const hiddenAll = [...hiddenPrefs, ...hiddenLocks];
+  const similar = state.showHidden ? [...visible, ...hiddenAll] : visible;
+  return { all, same, sameHidden, similar, visible, hiddenPrefs, hiddenLocks, hiddenAll };
+}
+const orderOf = item => { const R = ranked(item); return [...R.same, ...R.visible].map(x => x.p.id); };
+const hideReason = x => x.e.hidden || `doesn't have ${x.lockFails.map(r => `${LABELS[r.target].toLowerCase()} ${r.a.label.toLowerCase()}`).join(', ')}`;
+
