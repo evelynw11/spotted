@@ -84,3 +84,21 @@ body.notes-on .dnote b{display:block;font-size:10.5px;text-transform:uppercase;l
 .sample > div span{color:var(--muted);font-size:12.5px}
 .privacy{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding:12px;border-radius:12px;background:var(--good-soft);color:#1f5138;font-size:12.5px}
 
+/* ---------- analyzing ---------- */
+.analyze{display:flex;align-items:center;justify-content:center;gap:64px;min-height:100%;padding:40px}
+.analyze .stage{width:340px}
+.analyze h2{font-family:var(--serif);font-weight:500;font-size:34px;letter-spacing:-.01em}
+.analyze .sub{color:var(--muted);margin-top:6px}
+.steps-list{list-style:none;padding:0;margin:26px 0 22px;display:grid;gap:16px;min-width:380px}
+.steps-list li{display:flex;align-items:center;gap:12px;color:#a59a8d;transition:.2s;font-size:14.5px}
+.steps-list .st{width:24px;height:24px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;flex:none}
+.steps-list li.active{color:var(--ink);font-weight:600}
+.steps-list li.active .st{border-color:var(--accent);border-top-color:transparent;animation:spin .8s linear infinite}
+.steps-list li.done{color:var(--ink)}
+.steps-list li.done .st{background:var(--good);border-color:var(--good);color:#fff}
+.steps-list .res{margin-left:auto;font-size:12px;color:var(--good);font-weight:600;opacity:0;transition:.3s}
+.steps-list li.done .res{opacity:1}
+@keyframes spin{to{transform:rotate(360deg)}}
+.scan{position:absolute;left:0;right:0;height:90px;top:-90px;background:linear-gradient(180deg,transparent,rgba(214,120,80,.28),transparent);animation:scan 1.8s ease-in-out infinite;pointer-events:none}
+@keyframes scan{to{top:100%}}
+
