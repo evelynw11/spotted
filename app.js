@@ -501,3 +501,32 @@ function renderTop() {
     </div>`;
 }
 
+function viewHome() {
+  return `<section class="home">
+    <div>
+      <div class="eyebrow">${ic('sparkle', 13)} AI clothing finder</div>
+      <h1>Saw a cute outfit?<br><em>Find where it's from.</em></h1>
+      <p class="lede">Upload a photo or screenshot. Spotted finds the exact piece when it can, close alternatives that fit your budget when it can't, and shows you why each result was picked.</p>
+      <ul class="home-points">
+        <li><span class="pt-ic">${ic('eye', 18)}</span><div><b>Exact match, or honest alternatives</b><small>Clear labels for "likely the same item" vs. "similar", with how sure it is.</small></div></li>
+        <li><span class="pt-ic">${ic('leaf', 18)}</span><div><b>Your budget, your values</b><small>Say "under $50" or "secondhand please". It re-ranks and shows you what changed.</small></div></li>
+        <li><span class="pt-ic">${ic('info', 18)}</span><div><b>See the why</b><small>Every result shows which details match and what to double-check before you buy.</small></div></li>
+      </ul>
+    </div>
+    <div class="upload-card">
+      <label class="drop" id="drop">
+        <input type="file" accept="image/*" id="file" hidden>
+        <div class="drop-ic">${ic('upload', 26)}</div>
+        <b>Drop a photo or screenshot</b><span>or click to browse</span>
+      </label>
+      <div class="or"><span>or try the demo photo</span></div>
+      <button class="sample" data-act="useSample">
+        <img src="${IMG('hero')}" alt="Demo street photo">
+        <div><b>Fall campus look</b><span>Spotted on the walk to class · 4 pieces</span></div>
+        <span class="btn btn-primary">Use this photo ${ic('arrow', 14)}</span>
+      </button>
+      <div class="privacy">${ic('shield', 18)}<span>Faces and bystanders are blurred on your device first. Spotted searches for clothes, never for people.</span></div>
+    </div>
+  </section>`;
+}
+
