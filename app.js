@@ -181,3 +181,20 @@ const NOTES = {
 };
 const note = k => `<div class="dnote">${ic('sparkle', 13)}<div><b>${NOTES[k][0]}</b>${NOTES[k][1]}</div></div>`;
 
+/* ---------- state ---------- */
+const freshPrefs = () => ({ budget: null, style: null, fast: null, size: null, length: null, lessBrands: [], shapeBoost: false, colorFlex: false });
+function freshState() {
+  const attrValues = {};
+  for (const [k, it] of Object.entries(ITEMS)) { attrValues[k] = {}; for (const a of it.attrs) attrValues[k][a.key] = a.value; }
+  return {
+    view: 'home', step: 0, item: 'cardigan', tab: 'same', sort: 'best',
+    attrValues, corrected: {}, locks: {}, prefs: freshPrefs(), meta: {},
+    hidden: [], liked: [], saved: [], expanded: [], popover: null, editing: null, showHidden: false,
+    chat: [], log: [], moves: {}, rerank: null, modal: null, visited: { cardigan: true },
+  };
+}
+let state = freshState();
+let notesOn = false;
+let logSeq = 0;
+let timer = null;
+
