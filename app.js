@@ -930,3 +930,83 @@ function pickItem(k, silent) {
   if (!silent) onItemVisit(k); else state.visited[k] = true;
 }
 
+/* ---------- events ---------- */
+const ACTIONS = {
+  useSample: () => { state.modal = null; renderModal(); startAnalysis(); },
+  skip: enterWorkspace,
+  newPhoto: () => { clearTimeout(timer); state = freshState(); render(); },
+  toggleNotes: () => { notesOn = !notesOn; document.body.classList.toggle('notes-on', notesOn); renderTop(); },
+  openSaved: () => { state.modal = { type: 'saved' }; renderModal(); },
+  closeModal: () => { if (state.modal && state.modal.url) URL.revokeObjectURL(state.modal.url); state.modal = null; renderModal(); },
+  noop: () => {},
+  pickItem: k => pickItem(k),
+  tab: t => { state.tab = t; state.popover = null; renderCenter(); renderQuick(); $('#colCenter').scrollTop = 0; },
+  editAttr: key => { const id = `${state.item}.${key}`; state.editing = state.editing === id ? null : id; renderLeft(); },
+  setAttr: arg => {
+    const [key, val] = arg.split('|'); const item = state.item; const a = ITEMS[item].attrs.find(x => x.key === key);
+    if (state.attrValues[item][key] === val) { state.editing = null; renderLeft(); return; }
+    const exactBefore = ranked(item).same.map(x => x.p.id);
+    applyChange(() => {
+      state.attrValues[item][key] = val; state.editing = null;
+      if (val === a.value) delete state.corrected[`${item}.${key}`]; else state.corrected[`${item}.${key}`] = true;
+    }, `${a.label.toLowerCase()} is ${LABELS[val].toLowerCase()}`, 'said');
+    const exactNow = ranked(item).same.map(x => x.p.id);
+    const lost = exactBefore.filter(id => !exactNow.includes(id)).map(byId);
+    const gained = exactNow.filter(id => !exactBefore.includes(id)).map(byId);
+    let msg = `Thanks for the fix. I'm now searching for <b>${LABELS[val].toLowerCase()}</b> ${a.label.toLowerCase()} instead.`;
+    const topNow = ranked(item).visible[0];
+    if (lost.length) msg += ` So <b>${esc(lost[0].title)}</b> is no longer a confident exact match. ${topNow && topNow.p.id === lost[0].id ? "It's still the closest option overall, so it's now at the top of Similar." : 'I moved it to Similar.'}`;
+    if (gained.length) msg += ` <b>${esc(gained[0].title)}</b> now looks like the same item.`;
+    if (!lost.length && !gained.length && topNow) msg += ` Top similar pick is now <b>${esc(topNow.p.title)}</b>.`;
+    const better = PRODUCTS.filter(p => p.item === item && p.attrs[key] === val && !exactNow.includes(p.id) && (!topNow || p.id !== topNow.p.id));
+    if (better.length) msg += ` ${esc(better[0].brand)}'s ${esc(better[0].title.toLowerCase())} has that ${a.label.toLowerCase()}, but differs in other details.`;
+    aiSay(msg);
+  },
+  lockAttr: key => {
+    const item = state.item, id = `${item}.${key}`, a = ITEMS[item].attrs.find(x => x.key === key), v = LABELS[state.attrValues[item][key]].toLowerCase();
+    const on = !state.locks[id];
+    applyChange(() => { if (on) state.locks[id] = true; else delete state.locks[id]; }, on ? `must have ${v} ${a.label.toLowerCase()}` : `${a.label.toLowerCase()} no longer required`, 'said');
+    const R = ranked(item);
+    aiSay(on ? `Okay, I'll only show ${ITEMS[item].label.toLowerCase()} options with ${v} ${a.label.toLowerCase()}. ${R.hiddenLocks.length ? `${R.hiddenLocks.length} hidden because they don't have it.` : 'Nothing had to be hidden.'}` : `Unlocked. ${a.label} is a nice-to-have again.`, null, 500);
+  },
+  compare: id => { state.modal = { type: 'compare', id }; renderModal(); },
+  store: id => { const p = byId(id); toast(`Demo: in the real app this opens ${esc(p.store)}. Store names and prices here are made up.`); },
+  save: id => { state.saved = toggleIn(state.saved, id); renderTop(); if (state.view === 'workspace') { renderCenter(); } renderModal(); toast(state.saved.includes(id) ? 'Saved' : 'Removed from saved'); },
+  up: id => likeItem(id),
+  down: id => { state.popover = state.popover === id ? null : id; renderCenter(); },
+  closePop: () => { state.popover = null; renderCenter(); },
+  passReason: arg => { const [id, r] = arg.split('|'); passReason(id, r); },
+  unhide: id => { const p = byId(id); applyChange(() => { state.hidden = state.hidden.filter(x => x !== id); }, `brought back "${p.title}"`, 'said'); },
+  toggleWhy: id => { state.expanded = toggleIn(state.expanded, id); renderCenter(); },
+  showHidden: () => { state.showHidden = !state.showHidden; renderCenter(); },
+  whyRerank: () => {
+    const R = ranked(state.item); const ups = Object.entries(state.moves).filter(([, v]) => v === 'new' || v > 0).map(([id]) => byId(id));
+    const top = R.visible[0];
+    let msg = state.rerank ? `After <b>${esc(state.rerank.text)}</b>: ` : '';
+    msg += ups.length ? `${ups.map(p => `<b>${esc(p.title)}</b>`).join(' and ')} moved up. ` : 'The order of results did not change. ';
+    if (top) msg += `<br><br>${explainTop()}`;
+    aiSay(msg, null, 500);
+  },
+  dismissRerank: () => { state.rerank = null; state.moves = {}; renderCenter(); },
+  undo: undoLast,
+  msgAction: arg => {
+    const [i, j] = arg.split('|').map(Number); const m = state.chat[i]; if (!m || m.used) return;
+    m.used = true; const a = m.actions[j];
+    state.chat.push({ role: 'user', html: esc(a.label) }); renderChat();
+    a.fn();
+  },
+  quick: text => handleUserText(text),
+  keepPref: k => { state.meta[k] = 'said'; state.chat.push({ role: 'sys', html: `Kept as your preference: ${esc(k.replace('brand:', 'less '))}` }); renderPrefs(); renderChat(); },
+  dropPref: k => {
+    const label = { budget: 'budget', style: 'shopping style', size: 'size', fast: 'fast fashion setting', length: 'longer length', shapeBoost: 'fit & shape boost', colorFlex: 'open to other colors' }[k] || k.replace('brand:', 'less ');
+    applyChange(() => {
+      if (k.startsWith('brand:')) state.prefs.lessBrands = state.prefs.lessBrands.filter(b => b !== k.slice(6));
+      else if (k === 'shapeBoost' || k === 'colorFlex') state.prefs[k] = false;
+      else state.prefs[k] = null;
+      delete state.meta[k];
+    }, `removed ${label}`, 'said');
+    aiSay(`Removed. ${effectSummary()}`, null, 500);
+  },
+  resetPrefs: () => { applyChange(resetPrefsMut, 'cleared all preferences', 'said'); aiSay('Cleared. I\'m back to ranking only by how closely things look like your photo.', null, 500); },
+  shopLook: () => toast('In the full version, this searches for each missing piece using your preferences.'),
+};
