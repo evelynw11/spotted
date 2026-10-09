@@ -102,3 +102,20 @@ body.notes-on .dnote b{display:block;font-size:10.5px;text-transform:uppercase;l
 .scan{position:absolute;left:0;right:0;height:90px;top:-90px;background:linear-gradient(180deg,transparent,rgba(214,120,80,.28),transparent);animation:scan 1.8s ease-in-out infinite;pointer-events:none}
 @keyframes scan{to{top:100%}}
 
+/* ---------- photo stage ---------- */
+.stage{position:relative;border-radius:14px;overflow:hidden;background:#ddd;line-height:0}
+.stage img{width:100%;display:block}
+.blur{position:absolute;border-radius:45%;backdrop-filter:blur(11px);-webkit-backdrop-filter:blur(11px);background:rgba(240,230,220,.12);opacity:0;transition:opacity .4s}
+.blur.on{opacity:1}
+.box{position:absolute;border:2px solid #fff;border-radius:10px;opacity:0;transition:opacity .35s,box-shadow .2s;background:transparent;line-height:1.2}
+.box.on{opacity:1}
+.box .box-label{position:absolute;left:-2px;top:-2px;transform:translateY(-100%);background:#fff;color:var(--ink);font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:6px 6px 6px 0;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.box.conf-high{border-color:#7fd3a3}
+.box.conf-med{border-color:#f2c45a}
+.box.conf-low{border-color:#f39b7a}
+.box:hover{border-style:dashed}
+.box.sel{border-width:3px;box-shadow:0 0 0 2000px rgba(25,18,12,.30)}
+.box.sel .box-label{background:var(--ink);color:#fff}
+.box.lbl-r .box-label{left:auto;right:-2px;border-radius:6px 6px 0 6px}
+.box.lbl-b .box-label{top:auto;bottom:-2px;transform:translateY(100%);border-radius:0 6px 6px 6px}
+
