@@ -167,3 +167,16 @@ body.notes-on .dnote b{display:block;font-size:10.5px;text-transform:uppercase;l
 .tag-you{background:var(--you-soft);color:var(--you)}
 .tag-lock{background:var(--ink);color:#fff}
 
+/* ---------- center ---------- */
+.center-head h2{font-family:var(--serif);font-weight:500;font-size:28px;letter-spacing:-.01em;margin:2px 0 4px}
+.rerank{display:flex;align-items:center;gap:10px;margin:14px 0 0;padding:10px 12px;border-radius:12px;background:var(--you-soft);color:#2c3a85;font-size:13px;animation:pop .3s}
+@keyframes pop{from{transform:translateY(-4px);opacity:0}}
+.tabs-row{display:flex;align-items:center;justify-content:space-between;margin:16px 0 16px;border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:2px}
+.tab{padding:10px 14px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;gap:7px;align-items:center}
+.tab:hover{color:var(--ink)}
+.tab.on{color:var(--ink);border-bottom-color:var(--ink)}
+.tab .n{font-size:11px;background:var(--soft);border-radius:999px;padding:0 7px}
+.sort{font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.sort select,.pref select{border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:#fff;cursor:pointer}
+
