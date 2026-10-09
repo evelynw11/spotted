@@ -363,3 +363,56 @@ function onItemVisit(k) {
   if (msg) aiSay(msg, null, 600);
 }
 
+/* ---------- chat ---------- */
+function aiSay(html, actions = null, delay = 700) {
+  const msg = { role: 'ai', typing: true };
+  state.chat.push(msg); renderChat();
+  setTimeout(() => { msg.typing = false; msg.html = html; msg.actions = actions; renderChat(); }, delay);
+}
+function normSize(s) { return ({ small: 'S', medium: 'M', large: 'L' })[s] || s.toUpperCase(); }
+
+// LIVE: replace this keyword parser with an LLM call that returns structured preference updates.
+function handleUserText(raw) {
+  const t = raw.toLowerCase();
+  state.chat.push({ role: 'user', html: esc(raw) });
+  const muts = [], changes = [], replies = [];
+  let m = t.match(/(?:under|below|less than|max(?:imum)?|budget(?: is| of)?|up to|no more than|cheaper than|<)\s*\$?\s*(\d{2,4})/) || t.match(/\$\s*(\d{2,4})/);
+  if (m) { const b = +m[1]; muts.push(() => { state.prefs.budget = b; state.meta.budget = 'said'; }); changes.push(`budget up to $${b}`); }
+  if (/second ?hand|thrift|\bused\b|vintage|resale|pre-?loved|depop|poshmark/.test(t)) { muts.push(() => { state.prefs.style = 'secondhand'; state.meta.style = 'said'; }); changes.push('secondhand first'); }
+  else if (/sustainab|\beco\b|organic|ethical|environment/.test(t)) { muts.push(() => { state.prefs.style = 'sustainable'; state.meta.style = 'said'; }); changes.push('sustainable brands first'); }
+  if (/fast.?fashion|shein|temu|trendmart/.test(t)) {
+    const hide = /\b(no|hide|never|avoid|don'?t|remove|without|exclude)\b/.test(t);
+    muts.push(() => { state.prefs.fast = hide ? 'hide' : 'lower'; state.meta.fast = 'said'; }); changes.push(hide ? 'hide ultra-fast fashion' : 'rank fast fashion lower');
+  }
+  m = t.match(/\bsize\s*(xs|s|m|l|xl|small|medium|large)\b/) || t.match(/\bi'?m (?:an? |a size )?(xs|s|m|l|xl|small|medium|large)\b/);
+  if (m) { const s = normSize(m[1]); muts.push(() => { state.prefs.size = s; state.meta.size = 'said'; }); changes.push(`size ${s}`); }
+  if (/longer|hip.?length|not cropped|less cropped|cover/.test(t)) { muts.push(() => { state.prefs.length = 'longer'; state.meta.length = 'said'; }); changes.push('longer length'); }
+  if (/\b(reset|clear|start over|forget)\b/.test(t)) { muts.push(resetPrefsMut); changes.push('cleared all preferences'); }
+
+  if (muts.length) {
+    applyChange(() => muts.forEach(f => f()), changes.join(', '), 'said');
+    replies.push(`Got it: ${changes.join(', ')}. ${effectSummary()}`);
+  }
+  const itemWord = t.match(/\b(skirt|tote|bag|loafers?|shoes?|cardigan|sweater)\b/);
+  if (/\bwhy\b|how come|explain/.test(t)) {
+    const k = itemWord ? ({ bag: 'tote', tote: 'tote', loafer: 'loafers', loafers: 'loafers', shoe: 'loafers', shoes: 'loafers', skirt: 'skirt' })[itemWord[1]] : null;
+    replies.push(k ? explainItem(k) : (/(exact|no exact|same item)/.test(t) ? explainItem(state.item) : explainTop()));
+  } else if (/trust|\bsure\b|confident|accurate|reliable|believe/.test(t)) {
+    replies.push(TRUST);
+  }
+  if (/outfit|style (it|this|me)|wear (it|this)|pair|go with|styling/.test(t)) {
+    state.item = 'cardigan'; state.tab = 'outfits'; state.moves = {}; state.rerank = null;
+    replies.push("Here are three ways to wear the cardigan, plus what the whole look would cost with your current preferences. These are styling ideas I generated, not products I checked.");
+  } else if (itemWord && !muts.length && !replies.length) {
+    const k = ({ bag: 'tote', tote: 'tote', loafer: 'loafers', loafers: 'loafers', shoe: 'loafers', shoes: 'loafers', skirt: 'skirt', cardigan: 'cardigan', sweater: 'cardigan' })[itemWord[1]];
+    pickItem(k, true);
+    replies.push(`Switched to the ${ITEMS[k].label.toLowerCase()}. ${ITEMS[k].confNote}`);
+  }
+  if (/^(thanks|thank you|ty|cool|nice|great)/.test(t) && !replies.length) replies.push('Anytime! Save anything you like with the heart and it will stay in your Saved list.');
+  if (!replies.length) replies.push(`I'm a prototype, so I only understand a few things right now: a budget ("under $50"), secondhand or sustainable, your size, avoiding fast fashion, "something longer", and "why" questions.`);
+  renderAll();
+  aiSay(replies.join('<br><br>'));
+}
+
+function resetPrefsMut() { state.prefs = freshPrefs(); state.meta = {}; }
+
