@@ -1010,3 +1010,29 @@ const ACTIONS = {
   resetPrefs: () => { applyChange(resetPrefsMut, 'cleared all preferences', 'said'); aiSay('Cleared. I\'m back to ranking only by how closely things look like your photo.', null, 500); },
   shopLook: () => toast('In the full version, this searches for each missing piece using your preferences.'),
 };
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const fn = ACTIONS[el.dataset.act]; if (!fn) return;
+  if (el.tagName === 'BUTTON' || el.dataset.act !== 'noop') e.preventDefault();
+  fn(el.dataset.arg, el, e);
+});
+document.addEventListener('change', e => {
+  const s = e.target;
+  if (s.matches('[data-sort]')) { state.sort = s.value; state.moves = {}; state.rerank = null; renderCenter(); return; }
+  if (s.matches('[data-pref]')) {
+    const k = s.dataset.pref, v = s.value;
+    const text = {
+      budget: v ? `budget up to $${v}` : 'no budget limit',
+      style: { secondhand: 'secondhand first', sustainable: 'sustainable brands first', '': 'no shopping preference' }[v],
+      fast: { lower: 'rank fast fashion lower', hide: 'hide ultra-fast fashion', '': 'show fast fashion normally' }[v],
+      size: v ? `size ${v}` : 'size not set',
+    }[k];
+    applyChange(() => {
+      state.prefs[k] = v === '' ? null : (k === 'budget' ? +v : v);
+      if (v === '') delete state.meta[k]; else state.meta[k] = 'said';
+    }, text, 'said');
+    aiSay(effectSummary(), null, 600);
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.modal) ACTIONS.closeModal(); });
+
