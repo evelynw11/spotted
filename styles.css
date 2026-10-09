@@ -360,3 +360,9 @@ body.notes-on .dnote b{display:block;font-size:10.5px;text-transform:uppercase;l
 .cant{margin-top:14px;padding:12px 14px;border-radius:12px;background:#FDF6E7;color:#5e3f08;font-size:12.5px}
 .cant ul{margin:6px 0 0;padding-left:18px}
 .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.saved-list{display:grid;gap:10px}
+.saved-row{display:flex;align-items:center;gap:12px;padding:8px;border:1px solid var(--line);border-radius:12px}
+.saved-row img{width:56px;height:56px;border-radius:10px;object-fit:cover}
+.saved-row > div{flex:1}
+.upload-prev{display:flex;gap:16px;align-items:flex-start}
+.upload-prev img{width:120px;max-height:160px;object-fit:cover;border-radius:12px}
