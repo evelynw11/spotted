@@ -488,3 +488,16 @@ const kindTag = p => p.kind === 'secondhand' ? `<span class="kind kind-secondhan
 function toast(msg) { const t = $('#toast'); t.innerHTML = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2800); }
 const toggleIn = (arr, x) => arr.includes(x) ? arr.filter(y => y !== x) : [...arr, x];
 
+/* ---------- views ---------- */
+function renderTop() {
+  const step = state.view === 'home' ? 0 : state.view === 'analyzing' ? 1 : 2;
+  $('#topbar').innerHTML = `
+    <div class="logo" data-act="newPhoto"><span class="logo-mark">${ic('hanger', 18)}</span>Spotted<span class="proto">prototype</span></div>
+    <ol class="steps">${['Add a photo', 'AI reads it', 'Explore matches'].map((s, i) => `<li class="${i < step ? 'done' : i === step ? 'cur' : ''}"><span>${i < step ? ic('check', 12) : i + 1}</span>${s}</li>`).join('')}</ol>
+    <div class="top-actions">
+      <button class="toggle ${notesOn ? 'on' : ''}" data-act="toggleNotes" title="Show how each feature maps to course concepts"><span class="sw"></span>Design notes</button>
+      <button class="btn btn-ghost" data-act="openSaved">${ic('heart', 15)} Saved <span class="count">${state.saved.length}</span></button>
+      ${state.view !== 'home' ? `<button class="btn" data-act="newPhoto">New photo</button>` : ''}
+    </div>`;
+}
+
