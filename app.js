@@ -198,3 +198,26 @@ let notesOn = false;
 let logSeq = 0;
 let timer = null;
 
+/* ---------- matching + ranking ---------- */
+function weightFor(a) {
+  let w = a.w; const P = state.prefs;
+  if (P.shapeBoost && ['neck', 'length', 'pleats', 'slen', 'lstyle'].includes(a.key)) w *= 1.6;
+  if (P.colorFlex && ['color', 'pattern'].includes(a.key)) w *= 0.4;
+  return w;
+}
+function matchInfo(p) {
+  const it = ITEMS[p.item], vals = state.attrValues[p.item];
+  let tot = 0, got = 0; const rows = [];
+  for (const a of it.attrs) {
+    if (!a.w) continue;
+    const target = vals[a.key], pv = p.attrs[a.key], s = sim(target, pv), w = weightFor(a);
+    tot += w; got += w * s;
+    rows.push({ a, target, pv, s, status: s >= .85 ? 'match' : s >= .45 ? 'partial' : 'diff' });
+  }
+  const pct = Math.round(p.visual * (got / tot) * 100);
+  return { pct, rows, nMatch: rows.filter(r => r.status === 'match').length, n: rows.length };
+}
+const matchLabel = pct => pct >= 85 ? 'Likely the same item' : pct >= 70 ? 'Very close' : pct >= 50 ? 'Similar' : 'Same vibe';
+const dotsHtml = rows => `<span class="dots">${rows.map(r => `<i class="d d-${r.status}" title="${esc(r.a.label)}: ${r.status === 'match' ? 'matches' : r.status === 'partial' ? 'close' : 'different'}"></i>`).join('')}</span>`;
+const isClothing = p => ['cardigan', 'skirt'].includes(p.item);
+
