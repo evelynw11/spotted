@@ -416,3 +416,46 @@ function handleUserText(raw) {
 
 function resetPrefsMut() { state.prefs = freshPrefs(); state.meta = {}; }
 
+/* ---------- feedback (thumbs) ---------- */
+function passReason(id, reason) {
+  const p = byId(id); state.popover = null;
+  applyChange(() => { state.hidden.push(id); }, `hid "${p.title}"`, 'said');
+  const P = state.prefs;
+  if (reason === 'price') {
+    if (P.budget == null) {
+      const capV = Math.max(20, Math.floor((p.price * 0.75) / 10) * 10);
+      aiSay(`Got it, ${money(p.price)} is more than you want to spend. Should I set a budget so I stop showing pricier things?`, [
+        { label: `Yes, cap at $${capV}`, fn: () => { applyChange(() => { state.prefs.budget = capV; state.meta.budget = 'inferred'; }, `budget up to $${capV}`, 'inferred'); aiSay(`Done. I marked the budget as <b>inferred</b> in your preferences, so you can keep or remove it. ${effectSummary()}`); } },
+        { label: 'No, just this one', fn: () => aiSay("Okay. I only hid that one and didn't change your budget.") },
+      ]);
+    } else aiSay(`Noted. It's within your $${P.budget} budget, so I kept the budget as is and just hid this one.`);
+  } else if (reason === 'color') {
+    const key = ITEMS[p.item].attrs[0].key;
+    aiSay('Quick check so I learn the right thing: did I read the color wrong in your photo, or do you just want a different color than the one in the photo?', [
+      { label: 'You read it wrong', fn: () => { state.editing = `${p.item}.${key}`; renderLeft(); aiSay('Thanks. Pick the right color under <b>What I see</b> on the left and I will redo the matches.'); } },
+      { label: 'I want other colors', fn: () => { applyChange(() => { state.prefs.colorFlex = true; state.meta.colorFlex = 'inferred'; }, 'open to other colors', 'inferred'); aiSay("Got it. I'll care less about color and more about knit and shape. It's marked as inferred above, so you can remove it anytime."); } },
+    ]);
+  } else if (reason === 'shape') {
+    aiSay('Should I weigh fit and shape (length, neckline, pleats) more heavily from now on?', [
+      { label: 'Yes', fn: () => { applyChange(() => { state.prefs.shapeBoost = true; state.meta.shapeBoost = 'inferred'; }, 'fit & shape matter more', 'inferred'); aiSay(`Done. ${effectSummary()}`); } },
+      { label: 'No, just this one', fn: () => aiSay('Okay, I only hid that one.') },
+    ]);
+  } else if (reason === 'brand') {
+    applyChange(() => { state.prefs.lessBrands.push(p.brand); state.meta[`brand:${p.brand}`] = 'inferred'; }, `less ${p.brand}`, 'inferred');
+    aiSay(`I'll rank <b>${esc(p.brand)}</b> lower from now on. You can undo that in your preferences.`);
+  } else if (reason === 'sustain') {
+    if (p.kind === 'fast') {
+      aiSay('Want me to hide ultra-fast-fashion brands entirely, or just rank them lower?', [
+        { label: 'Hide them', fn: () => { applyChange(() => { state.prefs.fast = 'hide'; state.meta.fast = 'inferred'; }, 'hide ultra-fast fashion', 'inferred'); aiSay(`Done. ${effectSummary()}`); } },
+        { label: 'Rank lower', fn: () => { applyChange(() => { state.prefs.fast = 'lower'; state.meta.fast = 'inferred'; }, 'rank fast fashion lower', 'inferred'); aiSay(`Done. ${effectSummary()}`); } },
+      ]);
+    } else {
+      aiSay('Should I put secondhand or certified-sustainable options first?', [
+        { label: 'Secondhand first', fn: () => { applyChange(() => { state.prefs.style = 'secondhand'; state.meta.style = 'inferred'; }, 'secondhand first', 'inferred'); aiSay(`Done. ${effectSummary()}`); } },
+        { label: 'Sustainable brands first', fn: () => { applyChange(() => { state.prefs.style = 'sustainable'; state.meta.style = 'inferred'; }, 'sustainable brands first', 'inferred'); aiSay(`Done. ${effectSummary()}`); } },
+      ]);
+    }
+  } else {
+    aiSay("Okay, hidden. If you tell me what's off, I can learn from it, but no pressure.");
+  }
+}
