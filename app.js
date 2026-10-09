@@ -564,3 +564,20 @@ function updateAnalyzing() {
   document.querySelectorAll('#anStage .box').forEach(b => b.classList.toggle('on', state.step >= 2));
 }
 
+function wsSkeleton() {
+  return `<section class="ws">
+    <aside class="col col-left" id="colLeft"></aside>
+    <section class="col col-center" id="colCenter"></section>
+    <aside class="col col-right">
+      <div id="prefPanel"></div>
+      <div class="chat">
+        <div class="chat-head"><span class="avatar">${ic('sparkle', 14)}</span>Spotted assistant<span class="muted">demo answers</span></div>
+        <div class="chat-notes">${note('chat')}</div>
+        <div class="chat-log" id="chatLog"></div>
+        <div class="quick" id="quick"></div>
+        <form class="chat-input" id="chatForm"><input id="chatInput" placeholder='Try "under $50, secondhand please"' autocomplete="off"><button type="submit" title="Send">${ic('send', 16)}</button></form>
+      </div>
+    </aside>
+  </section>`;
+}
+
