@@ -645,3 +645,38 @@ function renderCenter() {
   el.scrollTop = st;
 }
 
+function viewSame(R) {
+  const it = ITEMS[state.item];
+  let html = note('match') + note('verify');
+  if (!R.same.length) {
+    const why = it.noExact
+      ? `It's a plain ${it.label.toLowerCase()} with no visible logo. Hundreds of brands sell nearly identical ones, so any "exact match" would be a guess.`
+      : state.item === 'loafers'
+        ? `The shoes are small in your photo and seen at an angle. My best guess only matches at ${R.visible[0] ? R.visible[0].m.pct : 0}%, which isn't enough to call it the same pair.`
+        : `With the details as they are now, nothing matches closely enough for me to call it the same item.`;
+    html += `${note('empty')}<div class="empty">
+      ${crop(it.box)}
+      <div>
+        <span class="warn-badge">${ic('alert', 12)} I can't confirm an exact match</span>
+        <h3>I'd rather not guess on this one</h3>
+        <p>${why}</p>
+        <ul>
+          ${it.noExact ? '<li>If the brand matters, look for a logo on the other side or a tag.</li>' : '<li>A closer or clearer photo of this piece would help most.</li>'}
+          <li>Check <b>Similar</b> for lookalikes I'm more confident about.</li>
+          <li>Try a reverse image search (e.g. Google Lens) on a cropped photo.</li>
+        </ul>
+        <div class="card-actions"><button class="btn btn-primary" data-act="tab" data-arg="similar">See similar ${ic('arrow', 14)}</button></div>
+      </div>
+    </div>`;
+  } else {
+    html += R.same.map(exactCard).join('');
+    const sims = R.visible.slice(0, 4);
+    if (sims.length) {
+      const prices = R.visible.map(x => x.p.price);
+      html += `<div class="more-teaser"><div class="thumbs">${sims.map(x => `<img src="${IMG(x.p.id)}" alt="">`).join('')}</div><div><b>${R.visible.length} similar options</b><div class="muted small">from ${money(Math.min(...prices))} to ${money(Math.max(...prices))}, including secondhand and sustainable picks</div></div><span class="spacer"></span><button class="btn" data-act="tab" data-arg="similar">See similar ${ic('arrow', 14)}</button></div>`;
+    }
+  }
+  if (R.sameHidden.length) html += `<div class="hidden-note">${R.sameHidden.length} likely-exact match hidden (you passed on it). <button class="link" data-act="unhide" data-arg="${R.sameHidden[0].p.id}">Bring it back</button></div>`;
+  return html;
+}
+
