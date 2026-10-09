@@ -718,3 +718,14 @@ function exactCard(x) {
   </article>`;
 }
 
+function viewSimilar(R) {
+  if (!R.similar.length && !R.hiddenAll.length) return `<div class="hidden-note">No similar items for this piece yet.</div>`;
+  let html = note('match') + note('verify');
+  html += `<div class="grid">${R.similar.map(card).join('')}</div>`;
+  if (R.hiddenAll.length) {
+    const reasons = [...new Set(R.hiddenAll.map(hideReason))];
+    html += `<div class="hidden-note">${ic('eye', 13)} ${R.hiddenAll.length} hidden (${esc(reasons.join('; '))}). <button class="link" data-act="showHidden">${state.showHidden ? 'Hide them again' : 'Show anyway'}</button></div>`;
+  }
+  return html;
+}
+
