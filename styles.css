@@ -29,3 +29,26 @@ h1,h2,h3,h4,h5,p{margin:0}
 .icon-btn.on{color:var(--you);background:var(--you-soft)}
 .icon-btn.on-good{color:var(--good);background:var(--good-soft)}
 
+/* ---------- top bar ---------- */
+.topbar{height:60px;display:flex;align-items:center;gap:24px;padding:0 20px;background:#fffdf9;border-bottom:1px solid var(--line);position:relative;z-index:5}
+.logo{display:flex;align-items:center;gap:9px;font-family:var(--serif);font-size:22px;font-weight:600;cursor:pointer;letter-spacing:-.01em}
+.logo-mark{width:30px;height:30px;border-radius:9px;background:var(--accent);color:#fff;display:grid;place-items:center}
+.proto{font-family:var(--sans);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 8px}
+.steps{display:flex;gap:4px;list-style:none;margin:0 auto;padding:0}
+.steps li{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);padding:5px 12px 5px 6px;border-radius:999px}
+.steps li span{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;background:var(--soft)}
+.steps li.cur{color:var(--ink);background:var(--soft);font-weight:600}
+.steps li.cur span{background:var(--ink);color:#fff}
+.steps li.done span{background:var(--good);color:#fff}
+.top-actions{display:flex;align-items:center;gap:6px}
+.toggle{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--muted);padding:6px 10px;border-radius:999px}
+.toggle:hover{background:var(--soft)}
+.toggle .sw{width:30px;height:18px;border-radius:999px;background:#d9d0c4;position:relative;transition:.2s}
+.toggle .sw::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:.2s}
+.toggle.on{color:var(--ink)}
+.toggle.on .sw{background:#E0B400}
+.toggle.on .sw::after{left:14px}
+.count{background:var(--soft);border-radius:999px;padding:0 7px;font-size:11.5px}
+
+#app{height:calc(100vh - 60px);overflow:auto}
+
