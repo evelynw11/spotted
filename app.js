@@ -764,3 +764,8 @@ function card(x) {
     ${state.popover === p.id ? passPopover(p) : ''}
   </article>`;
 }
+function passPopover(p) {
+  const r = [['price', 'Too expensive'], ['color', 'Wrong color'], ['shape', 'Wrong shape or fit'], ['brand', 'Not into this brand'], ['sustain', 'Not sustainable enough'], ['other', 'Just not for me']];
+  return `<div class="pop"><div class="pop-head">What's off? <button class="icon-btn" data-act="closePop">${ic('x', 14)}</button></div>${r.map(([k, l]) => `<button data-act="passReason" data-arg="${p.id}|${k}">${l}</button>`).join('')}</div>`;
+}
+
