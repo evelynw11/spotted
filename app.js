@@ -334,3 +334,19 @@ function effectSummary() {
   if (hid) parts.push(`${hid} ${hid > 1 ? 'are' : 'is'} hidden, but you can still show ${hid > 1 ? 'them' : 'it'} at the bottom of Similar.`);
   return parts.join(' ') || 'Done. Nothing moved for this piece.';
 }
+function explainTop() {
+  const R = ranked(state.item);
+  const x = (state.tab === 'same' && R.same[0]) || R.visible[0];
+  if (!x) return "There's nothing to rank for this piece right now.";
+  const m = x.m.rows.filter(r => r.status === 'match').map(r => r.a.label.toLowerCase());
+  const d = x.m.rows.filter(r => r.status !== 'match').map(r => `${r.a.label.toLowerCase()} (${LABELS[r.pv].toLowerCase()} vs. ${LABELS[r.target].toLowerCase()} in your photo)`);
+  const good = x.e.chips.filter(c => c[0] === 'good').map(c => c[1].toLowerCase());
+  return `<b>${esc(x.p.title)}</b> is first because ${x.m.nMatch} of ${x.m.n} visible details match (${m.join(', ') || 'none'})${good.length ? `, and it fits what you told me (${good.join(', ')})` : ''}.${d.length ? ` It differs on ${d.join(', ')}.` : ''}<br><br>How I rank: how closely it looks like your photo counts most. Your preferences then move things up or down.`;
+}
+function explainItem(k) {
+  if (k === 'loafers') return "The loafers are small in your photo (about 5% of it) and seen at an angle. I can tell they're black penny loafers, but not the sole or the brand. So my best result is labeled <b>Very close</b>, not <b>Same item</b>. A closer photo of the shoes would help.";
+  if (k === 'tote') return "It's a plain canvas tote with no visible logo. Hundreds of brands sell nearly identical ones, so calling anything an exact match would be a guess. I'd rather say so than make one up.";
+  return explainTop();
+}
+const TRUST = "Trust me most on what's clearly visible: color, pattern, shape, and details like buttons. Double-check what a photo can't show: fabric, the true shade, sizing, and whether a plain item is really the same brand. Each result has a <b>Before you buy</b> note with what to verify.";
+
