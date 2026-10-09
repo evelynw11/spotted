@@ -314,3 +314,30 @@ body.notes-on .dnote b{display:block;font-size:10.5px;text-transform:uppercase;l
 .chip button:hover{background:#fff;color:var(--ink)}
 .chip-inf{background:var(--you-soft);border:1.5px dashed var(--you)}
 .changes{margin-top:10px;font-size:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding-top:10px;border-top:1px solid var(--soft)}
+.chat{flex:1;display:flex;flex-direction:column;min-height:0;margin:12px 16px 16px;background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.chat-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--soft);font-weight:700;font-size:13.5px}
+.chat-head .muted{font-weight:500;font-size:12px;margin-left:auto}
+.chat-notes{padding:0 12px}
+.chat-log{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.msg{display:flex;gap:8px;max-width:100%}
+.msg-user{justify-content:flex-end}
+.bubble{padding:9px 12px;border-radius:14px 14px 14px 4px;background:#F4EEE5;font-size:13px;line-height:1.5;max-width:88%}
+.msg-user .bubble{background:var(--ink);color:#fff;border-radius:14px 14px 4px 14px}
+.avatar{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;flex:none}
+.msg-sys{align-self:center;font-size:11.5px;color:var(--you);background:var(--you-soft);padding:4px 10px;border-radius:999px;text-align:center;display:flex;gap:5px;align-items:center}
+.msg-sys.inf{background:#fff;border:1px dashed var(--you)}
+.msg-sys .link{color:var(--you)}
+.msg-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.qr{font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;border:1px solid #d7cbbb;background:#fff;transition:.15s}
+.qr:hover{border-color:var(--ink)}
+.quick{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 0}
+.chat-input{display:flex;gap:8px;padding:10px 12px 12px}
+.chat-input input{flex:1;border:1px solid var(--line);border-radius:999px;padding:9px 14px;outline:none;background:var(--cream)}
+.chat-input input:focus{border-color:var(--ink);background:#fff}
+.chat-input button{width:38px;height:38px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;flex:none}
+.typing{display:inline-flex;gap:4px;padding:4px 0}
+.typing i{width:6px;height:6px;border-radius:50%;background:#b5a898;animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}
+.typing i:nth-child(3){animation-delay:.3s}
+@keyframes blink{50%{opacity:.3}}
+
