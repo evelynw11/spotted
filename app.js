@@ -365,6 +365,13 @@ function onItemVisit(k) {
 
 /* ---------- chat ---------- */
 function aiSay(html, actions = null, delay = 700) {
+  if (actions) {
+    const assistant = $('#assistant');
+    if (assistant && !assistant.open) {
+      assistant.open = true;
+      assistant.querySelector('summary').focus();
+    }
+  }
   const msg = { role: 'ai', typing: true };
   state.chat.push(msg); renderChat();
   setTimeout(() => { msg.typing = false; msg.html = html; msg.actions = actions; renderChat(); }, delay);
@@ -432,7 +439,7 @@ function passReason(id, reason) {
   } else if (reason === 'color') {
     const key = ITEMS[p.item].attrs[0].key;
     aiSay('Quick check so I learn the right thing: did I read the color wrong in your photo, or do you just want a different color than the one in the photo?', [
-      { label: 'You read it wrong', fn: () => { state.editing = `${p.item}.${key}`; renderLeft(); aiSay('Thanks. Pick the right color under <b>What I see</b> on the left and I will redo the matches.'); } },
+      { label: 'You read it wrong', fn: () => { state.editing = `${p.item}.${key}`; renderPhoto(); const details = $('#photoDetails'); details.open = true; details.querySelector('.attr-edit button')?.focus(); aiSay('Pick the right color in <b>Photo details</b> to update the matches.'); } },
       { label: 'I want other colors', fn: () => { applyChange(() => { state.prefs.colorFlex = true; state.meta.colorFlex = 'inferred'; }, 'open to other colors', 'inferred'); aiSay("Got it. I'll care less about color and more about knit and shape. It's marked as inferred above, so you can remove it anytime."); } },
     ]);
   } else if (reason === 'shape') {
@@ -490,10 +497,8 @@ const toggleIn = (arr, x) => arr.includes(x) ? arr.filter(y => y !== x) : [...ar
 
 /* ---------- views ---------- */
 function renderTop() {
-  const step = state.view === 'home' ? 0 : state.view === 'analyzing' ? 1 : 2;
   $('#topbar').innerHTML = `
-    <div class="logo" data-act="newPhoto"><span class="logo-mark">${ic('hanger', 18)}</span>Spotted<span class="proto">prototype</span></div>
-    <ol class="steps">${['Add a photo', 'AI reads it', 'Explore matches'].map((s, i) => `<li class="${i < step ? 'done' : i === step ? 'cur' : ''}"><span>${i < step ? ic('check', 12) : i + 1}</span>${s}</li>`).join('')}</ol>
+    <button class="logo" data-act="newPhoto"><span class="logo-mark">${ic('hanger', 18)}</span>Spotted</button>
     <div class="top-actions">
       <button class="toggle ${notesOn ? 'on' : ''}" data-act="toggleNotes" title="Show how each feature maps to course concepts"><span class="sw"></span>Design notes</button>
       <button class="btn btn-ghost" data-act="openSaved">${ic('heart', 15)} Saved <span class="count">${state.saved.length}</span></button>
@@ -506,12 +511,7 @@ function viewHome() {
     <div>
       <div class="eyebrow">${ic('sparkle', 13)} AI clothing finder</div>
       <h1>Saw a cute outfit?<br><em>Find where it's from.</em></h1>
-      <p class="lede">Upload a photo or screenshot. Spotted finds the exact piece when it can, close alternatives that fit your budget when it can't, and shows you why each result was picked.</p>
-      <ul class="home-points">
-        <li><span class="pt-ic">${ic('eye', 18)}</span><div><b>Exact match, or honest alternatives</b><small>Clear labels for "likely the same item" vs. "similar", with how sure it is.</small></div></li>
-        <li><span class="pt-ic">${ic('leaf', 18)}</span><div><b>Your budget, your values</b><small>Say "under $50" or "secondhand please". It re-ranks and shows you what changed.</small></div></li>
-        <li><span class="pt-ic">${ic('info', 18)}</span><div><b>See the why</b><small>Every result shows which details match and what to double-check before you buy.</small></div></li>
-      </ul>
+      <p class="lede">Find the clothes in a photo and explore similar pieces that fit your budget.</p>
     </div>
     <div class="upload-card">
       <label class="drop" id="drop">
@@ -519,13 +519,12 @@ function viewHome() {
         <div class="drop-ic">${ic('upload', 26)}</div>
         <b>Drop a photo or screenshot</b><span>or click to browse</span>
       </label>
-      <div class="or"><span>or try the demo photo</span></div>
+      <div class="or"><span>or</span></div>
       <button class="sample" data-act="useSample">
         <img src="${IMG('hero')}" alt="Demo street photo">
-        <div><b>Fall campus look</b><span>Spotted on the walk to class · 4 pieces</span></div>
-        <span class="btn btn-primary">Use this photo ${ic('arrow', 14)}</span>
+        <div><b>Try the demo photo</b></div>${ic('arrow', 16)}
       </button>
-      <div class="privacy">${ic('shield', 18)}<span>Faces and bystanders are blurred on your device first. Spotted searches for clothes, never for people.</span></div>
+      <div class="privacy">${ic('shield', 18)}<span>Prototype with sample matches. Your photo stays on this device.</span></div>
     </div>
   </section>`;
 }
@@ -533,9 +532,7 @@ function viewHome() {
 const STEPS = [
   ['Blurring faces and bystanders', '2 blurred'],
   ['Finding clothing items', '4 found'],
-  ['Reading details: color, knit, buttons, pattern', '17 details'],
-  ['Searching 2,400+ stores and resale sites', '10 matches'],
-  ['Checking prices, sizes and stock', 'done'],
+  ['Finding sample matches', 'Ready'],
 ];
 function photoStage({ interactive = false, blur = true, boxes = true, scan = false } = {}) {
   return `<div class="stage">
@@ -549,9 +546,7 @@ function viewAnalyzing() {
   return `<section class="analyze">
     <div id="anStage">${photoStage({ blur: false, boxes: false, scan: true })}</div>
     <div>
-      <div class="eyebrow">${ic('sparkle', 13)} Working on it</div>
       <h2>Reading your photo</h2>
-      <p class="sub">This usually takes a few seconds.</p>
       <ul class="steps-list">${STEPS.map(([s, r]) => `<li><span class="st"></span><span>${s}</span><span class="res">${r}</span></li>`).join('')}</ul>
       <button class="link" data-act="skip">Skip animation</button>
     </div>
@@ -566,41 +561,45 @@ function updateAnalyzing() {
 
 function wsSkeleton() {
   return `<section class="ws">
-    <aside class="col col-left" id="colLeft"></aside>
-    <section class="col col-center" id="colCenter"></section>
-    <aside class="col col-right">
-      <div id="prefPanel"></div>
-      <div class="chat">
-        <div class="chat-head"><span class="avatar">${ic('sparkle', 14)}</span>Spotted assistant<span class="muted">demo answers</span></div>
-        <div class="chat-notes">${note('chat')}</div>
-        <div class="chat-log" id="chatLog"></div>
-        <div class="quick" id="quick"></div>
-        <form class="chat-input" id="chatForm"><input id="chatInput" placeholder='Try "under $50, secondhand please"' autocomplete="off"><button type="submit" title="Send">${ic('send', 16)}</button></form>
+    <section class="col col-center">
+      <div id="itemPicker"></div>
+      <div class="result-tools">
+        <details class="disclosure"><summary>Filters</summary><div id="prefPanel"></div></details>
+        <details class="disclosure" id="assistant"><summary>Ask Spotted</summary>
+          <div class="chat">
+            <div class="chat-head"><span class="avatar">${ic('sparkle', 14)}</span>Demo assistant</div>
+            <div class="chat-notes">${note('chat')}</div>
+            <div class="chat-log" id="chatLog"></div>
+            <div class="quick" id="quick"></div>
+            <form class="chat-input" id="chatForm"><input id="chatInput" aria-label="Message Spotted" placeholder='Try "under $50, secondhand please"' autocomplete="off"><button type="submit" title="Send">${ic('send', 16)}</button></form>
+          </div>
+        </details>
       </div>
-    </aside>
+      <div id="colCenter"></div>
+    </section>
+    <aside class="col photo-panel" id="photoPanel"></aside>
   </section>`;
 }
 
-function renderLeft() {
-  const el = $('#colLeft'); if (!el) return; const st = el.scrollTop;
+function renderPhoto() {
+  const el = $('#photoPanel'); if (!el) return;
   const it = ITEMS[state.item];
+  const detailsOpen = $('#photoDetails')?.open;
+  $('#itemPicker').innerHTML = `<h2>Find a piece</h2><div class="item-list" aria-label="Clothing pieces">${Object.entries(ITEMS).map(([k, v]) => `<button class="item-chip ${k === state.item ? 'on' : ''}" aria-pressed="${k === state.item}" data-act="pickItem" data-arg="${k}">${v.label}</button>`).join('')}</div>`;
   el.innerHTML = `
     <div class="panel">
       <div class="panel-head"><h3>Your photo</h3><span class="pill pill-good">${ic('shield', 12)} 2 faces blurred</span></div>
       ${note('privacy')}
       ${photoStage({ interactive: true })}
-      <p class="hint">Click a box (or a chip below) to pick what to search for.</p>
-      <div class="item-list">${Object.entries(ITEMS).map(([k, v]) => `<button class="item-chip ${k === state.item ? 'on' : ''}" data-act="pickItem" data-arg="${k}"><span>${v.label}</span><span class="cb cb-${confLevel(v.conf)}">${v.conf}%</span></button>`).join('')}</div>
       ${note('detect')}
     </div>
-    <div class="panel">
-      <div class="panel-head"><h3>What I see</h3><span class="muted small">${esc(it.label)} · ${it.conf}% sure it's there</span></div>
+    <details class="disclosure" id="photoDetails" ${detailsOpen ? 'open' : ''}>
+      <summary>Photo details · ${esc(it.label)}</summary>
       <p class="conf-note">${esc(it.confNote)}</p>
       ${note('perceive')}
       <ul class="attrs">${it.attrs.map(attrRow).join('')}</ul>
       <p class="hint">${ic('edit', 12)} Fix anything I got wrong. ${ic('lock', 12)} Lock a detail to only see results that have it.</p>
-    </div>`;
-  el.scrollTop = st;
+    </details>`;
 }
 function attrRow(a) {
   const item = state.item, v = state.attrValues[item][a.key], id = `${item}.${a.key}`;
@@ -622,27 +621,21 @@ function attrRow(a) {
 }
 
 function renderCenter() {
-  const el = $('#colCenter'); if (!el) return; const st = el.scrollTop;
+  const el = $('#colCenter'); if (!el) return;
   const it = ITEMS[state.item], R = ranked(state.item);
-  const sameN = R.same.length, simN = R.visible.length;
-  const summary = state.tab === 'outfits' ? 'Styling ideas built around the cardigan, plus the cost of recreating the whole look.'
-    : `${sameN ? `${sameN} likely exact match` : 'No confident exact match'} and ${simN} similar ${simN === 1 ? 'item' : 'items'}${R.hiddenAll.length ? ` (${R.hiddenAll.length} hidden)` : ''}.`;
-  const tabs = [['same', 'Same item', sameN], ['similar', 'Similar', simN], ['outfits', 'Outfit ideas', OUTFITS.length]];
+  const tabs = [['same', 'Same item'], ['similar', 'Similar'], ['outfits', 'Outfit ideas']];
   el.innerHTML = `
     <div class="center-head">
-      <div class="eyebrow">Searching for</div>
-      <h2>${state.tab === 'outfits' ? 'Cropped cream cable-knit cardigan' : esc(it.name)}</h2>
-      <p class="muted">${summary}</p>
+      <h2>${state.tab === 'outfits' ? 'Style the cardigan' : esc(it.name)}</h2>
     </div>
     ${state.rerank && state.tab !== 'outfits' ? `
       ${note('rerank')}
       <div class="rerank">${ic('refresh', 15)}<span>Re-ranked after <b>${esc(state.rerank.text)}</b>.${state.rerank.moved ? ` ${state.rerank.moved} moved.` : ''}${state.rerank.removed ? ` ${state.rerank.removed} hidden.` : ''}${prefSummary().length ? ` Now optimizing for: ${esc(prefSummary().join(', '))}.` : ''}</span><span class="spacer"></span><button class="link" data-act="whyRerank">Explain</button><button class="icon-btn" data-act="dismissRerank" title="Dismiss">${ic('x', 14)}</button></div>` : ''}
     <div class="tabs-row">
-      <div class="tabs">${tabs.map(([k, l, n]) => `<button class="tab ${state.tab === k ? 'on' : ''}" data-act="tab" data-arg="${k}">${l}<span class="n">${n}</span></button>`).join('')}</div>
+      <div class="tabs">${tabs.map(([k, l]) => `<button class="tab ${state.tab === k ? 'on' : ''}" aria-pressed="${state.tab === k}" data-act="tab" data-arg="${k}">${l}</button>`).join('')}</div>
       ${state.tab === 'similar' ? `<label class="sort">Sort by <select data-sort>${[['best', 'Best for you'], ['look', 'Closest look'], ['price', 'Lowest price'], ['sustain', 'Most sustainable']].map(([v, l]) => `<option value="${v}" ${state.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>` : ''}
     </div>
     <div id="tabBody">${state.tab === 'same' ? viewSame(R) : state.tab === 'similar' ? viewSimilar(R) : viewOutfits()}</div>`;
-  el.scrollTop = st;
 }
 
 function viewSame(R) {
@@ -657,13 +650,10 @@ function viewSame(R) {
     html += `${note('empty')}<div class="empty">
       ${crop(it.box)}
       <div>
-        <span class="warn-badge">${ic('alert', 12)} I can't confirm an exact match</span>
-        <h3>I'd rather not guess on this one</h3>
+        <h3>No confirmed exact match</h3>
         <p>${why}</p>
         <ul>
           ${it.noExact ? '<li>If the brand matters, look for a logo on the other side or a tag.</li>' : '<li>A closer or clearer photo of this piece would help most.</li>'}
-          <li>Check <b>Similar</b> for lookalikes I'm more confident about.</li>
-          <li>Try a reverse image search (e.g. Google Lens) on a cropped photo.</li>
         </ul>
         <div class="card-actions"><button class="btn btn-primary" data-act="tab" data-arg="similar">See similar ${ic('arrow', 14)}</button></div>
       </div>
@@ -697,7 +687,7 @@ function exactCard(x) {
         <div class="howsure-head">${dotsHtml(m.rows)}<b>${m.nMatch} of ${m.n} visible details match</b><span class="muted">(${m.pct}% visual match)</span></div>
         <p>${esc(p.exactNote || '')}</p>
       </div>
-      <div class="two">
+      <details class="disclosure match-details"><summary>Match details</summary><div class="two">
         <div><h5>${ic('check', 13)} What matches</h5><ul>${matched.map(r => `<li class="st-${r.status}">${statusIcon(r.status)}<span>${r.a.label}: ${esc(LABELS[r.pv])}</span></li>`).join('')}${diffs.map(r => `<li class="st-diff">${statusIcon('diff')}<span>${r.a.label}: ${esc(LABELS[r.pv])} (yours: ${esc(LABELS[r.target])})</span></li>`).join('')}</ul></div>
         <div><h5>${ic('alert', 13)} What I couldn't check</h5><ul>
           <li class="st-unknown">${statusIcon('unknown')}<span>Material. The listing says ${esc(p.material)}.</span></li>
@@ -705,6 +695,7 @@ function exactCard(x) {
           <li class="st-unknown">${statusIcon('unknown')}<span>Fit on you. Check the size chart and return policy.</span></li>
         </ul></div>
       </div>
+      </details>
       ${over ? `<div class="over-note">${ic('alert', 15)}<span>This is ${money(Math.round(p.price - P.budget))} over your $${P.budget} budget. I kept it here in case it's worth it.</span><span class="spacer"></span><button class="btn btn-sm" data-act="tab" data-arg="similar">Options under $${P.budget}</button></div>` : ''}
       <div class="card-actions">
         <button class="btn btn-sm" data-act="compare" data-arg="${p.id}">${ic('compare', 14)} Compare side by side</button>
@@ -839,7 +830,7 @@ function renderChat() {
     if (m.role === 'user') return `<div class="msg msg-user"><div class="bubble">${m.html}</div></div>`;
     return `<div class="msg msg-ai"><div class="avatar">${ic('sparkle', 13)}</div><div class="bubble">${m.typing ? '<span class="typing"><i></i><i></i><i></i></span>' : m.html}${m.actions && !m.used && !m.typing ? `<div class="msg-actions">${m.actions.map((a, j) => `<button class="qr" data-act="msgAction" data-arg="${i}|${j}">${esc(a.label)}</button>`).join('')}</div>` : ''}</div></div>`;
   }).join('');
-  log.scrollTop = log.scrollHeight;
+  if ($('#assistant').open) log.scrollTop = log.scrollHeight;
   renderQuick();
 }
 function renderQuick() {
@@ -896,7 +887,7 @@ function render() {
 }
 function renderAll() {
   if (state.view !== 'workspace') return;
-  renderTop(); renderLeft(); renderCenter(); renderPrefs(); renderChat(); renderModal();
+  renderTop(); renderPhoto(); renderCenter(); renderPrefs(); renderChat(); renderModal();
 }
 function bindDrop() {
   const d = $('#drop'), f = $('#file');
@@ -907,6 +898,10 @@ function bindDrop() {
 }
 function onUpload(file) { state.modal = { type: 'upload', name: file.name, url: URL.createObjectURL(file) }; renderModal(); }
 function bindChat() {
+  $('#assistant').addEventListener('toggle', () => {
+    const log = $('#chatLog');
+    if (log) log.scrollTop = log.scrollHeight;
+  });
   $('#chatForm').addEventListener('submit', e => {
     e.preventDefault(); const inp = $('#chatInput'); const v = inp.value.trim(); if (!v) return; inp.value = ''; handleUserText(v);
   });
@@ -939,12 +934,15 @@ const ACTIONS = {
   openSaved: () => { state.modal = { type: 'saved' }; renderModal(); },
   closeModal: () => { if (state.modal && state.modal.url) URL.revokeObjectURL(state.modal.url); state.modal = null; renderModal(); },
   noop: () => {},
-  pickItem: k => pickItem(k),
-  tab: t => { state.tab = t; state.popover = null; renderCenter(); renderQuick(); $('#colCenter').scrollTop = 0; },
-  editAttr: key => { const id = `${state.item}.${key}`; state.editing = state.editing === id ? null : id; renderLeft(); },
+  pickItem: (k, el) => {
+    pickItem(k);
+    $(`.${el.classList.contains('box') ? 'box.sel' : 'item-chip.on'}`)?.focus({ preventScroll: true });
+  },
+  tab: t => { state.tab = t; state.popover = null; renderCenter(); renderQuick(); $('.tab.on')?.focus({ preventScroll: true }); },
+  editAttr: key => { const id = `${state.item}.${key}`; state.editing = state.editing === id ? null : id; renderPhoto(); },
   setAttr: arg => {
     const [key, val] = arg.split('|'); const item = state.item; const a = ITEMS[item].attrs.find(x => x.key === key);
-    if (state.attrValues[item][key] === val) { state.editing = null; renderLeft(); return; }
+    if (state.attrValues[item][key] === val) { state.editing = null; renderPhoto(); return; }
     const exactBefore = ranked(item).same.map(x => x.p.id);
     applyChange(() => {
       state.attrValues[item][key] = val; state.editing = null;
@@ -980,6 +978,7 @@ const ACTIONS = {
   toggleWhy: id => { state.expanded = toggleIn(state.expanded, id); renderCenter(); },
   showHidden: () => { state.showHidden = !state.showHidden; renderCenter(); },
   whyRerank: () => {
+    const assistant = $('#assistant'); assistant.open = true; assistant.querySelector('summary').focus();
     const R = ranked(state.item); const ups = Object.entries(state.moves).filter(([, v]) => v === 'new' || v > 0).map(([id]) => byId(id));
     const top = R.visible[0];
     let msg = state.rerank ? `After <b>${esc(state.rerank.text)}</b>: ` : '';

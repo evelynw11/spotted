@@ -32,12 +32,12 @@ People (especially students) who want to buy clothing they've seen in person or 
 
 ## Try it: 2-minute walkthrough
 
-1. Open the [live demo](https://evelynw11.github.io/spotted/) and click **Use this photo**.
+1. Open the [live demo](https://evelynw11.github.io/spotted/) and click **Try the demo photo**.
 2. Watch it blur faces, detect 4 pieces, and search.
 3. **Same item** tab: the likely exact cardigan, with 5 of 5 visible details matching. Click **Compare side by side**.
-4. In the chat, click **Under $50, please**, then **Secondhand first**. Notice the re-rank banner and how the assistant explains the tradeoffs.
+4. Open **Ask Spotted** and click **Under $50, please**, then **Secondhand first**. Notice the re-rank banner and how the assistant explains the tradeoffs.
 5. **Similar** tab: thumbs-down the TrendMart cardigan and choose **Not sustainable enough**. The assistant asks before hiding fast fashion.
-6. In **What I see** (left), fix the color to *Oatmeal / beige*. The exact match drops out, and the assistant explains why. Click **Undo**.
+6. Open **Photo details** and fix the color to *Oatmeal / beige*. The exact match drops out, and the assistant explains why. Open **Filters** and click **Undo**.
 7. Click **Loafers**: low confidence, so it refuses to guess and tells you what would help.
 8. **Outfit ideas** tab: three ways to wear the cardigan, plus the cost of the whole look.
 9. Turn on **Design notes** (top right) to see which HCI concept each feature demonstrates.
