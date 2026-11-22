@@ -2,12 +2,12 @@
 
 **A clothing search prototype for outfits you see in real life.** Upload a photo, select a garment, and search a reference collection of 5,756 real clothing photos for visually similar pieces. Reference results show simulated prices and conditions.
 
-**[Try the hosted demo](https://evelynw11.github.io/spotted/)** · [Download the standalone HTML](spotted-demo.html)
+**[Try the hosted demo](https://evelynw11.github.io/spotted/)**
 
 | Mode | What you can try | Where to run it |
 |---|---|---|
-| Scripted walkthrough | Explore simulated detections, catalog matches, and shopping preferences with **Try the demo photo**. | Hosted or standalone demo |
-| Local color scan | Upload a photo or choose **Try a real photo**, then search the sample catalog by color. | Hosted or standalone demo |
+| Scripted walkthrough | Explore simulated detections, catalog matches, and shopping preferences with **Try the demo photo**. | Hosted demo or local server |
+| Local color scan | Upload a photo or choose **Try a real photo**, then search the sample catalog by color. | Hosted demo or local server |
 | Reference dataset search | Use Bedrock to analyze an uploaded garment and compare it with the full reference collection on your Mac. | [Local server with AWS](#search-the-reference-dataset-with-amazon-bedrock) |
 
 ![Scripted walkthrough showing sample garment detections, an example match, and the assistant](docs/screenshots/03-same-item.jpg)
@@ -61,7 +61,7 @@ The default similarity cutoff is `0.68`. Lower `REFERENCE_MAX_DISTANCE` values r
 
 ## Try the scripted walkthrough
 
-1. Open the hosted or standalone demo and select **Try the demo photo**. The animation illustrates face blurring and detection of four sample pieces.
+1. Open the hosted demo or local app and select **Try the demo photo**. The animation illustrates face blurring and detection of four sample pieces.
 2. Keep **Cardigan** selected, leave the shopping preferences blank, and select **Confirm and search**.
 3. In **Same item**, open **Compare side by side** to see the photo and sample listing, with five matching visible details.
 4. Open **Ask Spotted**. Select **Under $50, please**, then **Secondhand first**. Open **Similar** to see the filtered and re-ranked listings.
@@ -72,7 +72,7 @@ The default similarity cutoff is `0.68`. Lower `REFERENCE_MAX_DISTANCE` values r
 
 ## Screenshots
 
-These screenshots show the standalone demo, including the scripted walkthrough.
+These screenshots show the demo home screen and scripted walkthrough.
 
 | | |
 |---|---|
@@ -97,21 +97,15 @@ These screenshots show the standalone demo, including the scripted walkthrough.
 - **Filtering and ranking:** Price bounds, brand exclusions, secondhand eligibility, and explicit fast-fashion exclusions filter the curated catalog before scoring. Visual similarity, preferred brands, sustainability, and other ranking preferences order the eligible results. “Show anyway” can reveal feedback-hidden listings that still meet the catalog filters.
 - **Assistant:** A small keyword parser turns chat messages into preference updates, and scripted responses explain the effect of each change.
 
-## Run the standalone demo
+## Run locally without AWS
 
-Open the HTML file directly in your browser. The standalone demo requires no setup.
-
-```bash
-git clone https://github.com/evelynw11/spotted.git
-cd spotted
-open spotted-demo.html
-```
-
-If you edit the code, rebuild the single-file version with Node:
+From the project folder, start the local server with Node.js 16.9 or later:
 
 ```bash
-node build.js            # writes spotted-demo.html with CSS, JS and images inlined
+node server.js
 ```
+
+Open [Spotted on your Mac](http://127.0.0.1:4173) to use the scripted walkthrough and local color scan. Press **Ctrl+C** in the server terminal to stop it.
 
 ## Project structure
 
@@ -124,8 +118,6 @@ img/                Demo images and three dataset samples
 scripts/prepare-dataset.py      Downloads photos and assigns sample catalog metadata
 scripts/reference-search.m      Builds and searches the local Apple Vision index
 reference-data/                Downloaded photos, catalog, and index (generated locally)
-build.js            Bundles everything into spotted-demo.html
-spotted-demo.html   Self-contained single-file demo
 docs/screenshots/   Screenshots used in this README
 ```
 
