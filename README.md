@@ -2,15 +2,17 @@
 
 **A clothing search prototype for outfits you see in real life.** Upload a photo, select a garment, and search a reference collection of 5,756 real clothing photos for visually similar pieces. Reference results show simulated prices and conditions.
 
-**[Try the hosted demo](https://evelynw11.github.io/spotted/)** · [Open the standalone demo](spotted-demo.html)
+**[Try the hosted demo](https://evelynw11.github.io/spotted/)** · [Download the standalone HTML](spotted-demo.html)
 
-| Mode | What you can try | AWS required |
+| Mode | What you can try | Where to run it |
 |---|---|---|
-| Scripted walkthrough | Explore simulated detections, catalog matches, and shopping preferences with **Try the demo photo**. | No |
-| Local color scan | Upload a photo or choose **Try a real photo**, then search the sample catalog by color. | No |
-| Reference dataset search | Use Bedrock to analyze an uploaded garment and compare it with the full reference collection on your Mac. | Yes |
+| Scripted walkthrough | Explore simulated detections, catalog matches, and shopping preferences with **Try the demo photo**. | Hosted or standalone demo |
+| Local color scan | Upload a photo or choose **Try a real photo**, then search the sample catalog by color. | Hosted or standalone demo |
+| Reference dataset search | Use Bedrock to analyze an uploaded garment and compare it with the full reference collection on your Mac. | [Local server with AWS](#search-the-reference-dataset-with-amazon-bedrock) |
 
-![Spotted workspace: the photo with detected pieces, the likely exact match, and the assistant](docs/screenshots/03-same-item.jpg)
+![Scripted walkthrough showing sample garment detections, an example match, and the assistant](docs/screenshots/03-same-item.jpg)
+
+*Screenshot from the scripted walkthrough.*
 
 ---
 
@@ -24,9 +26,9 @@ Reverse image search can find visually similar items, but it can't take into acc
 
 People (especially students) who want to buy clothing they've seen in person or online, but don't know what it is or where to find it.
 
-## Minimum goal
+## Prototype scope
 
-Users confirm a detected piece and set optional shopping preferences before searching a curated catalog. Price bounds, excluded brands, and secondhand eligibility define which listings can appear. Preferred brands and priorities such as sustainability influence ranking alongside visual similarity. Users can refine these choices after seeing their matches. Live web search is a reach goal.
+The reference search compares one selected garment crop with the local image dataset. The scripted walkthrough demonstrates shopping preferences using fictional listings. Its filters control which listings qualify, and preferences such as preferred brands and sustainability affect their order. Live shopping links and inventory are future work.
 
 ## Scan your photo by color
 
@@ -34,11 +36,11 @@ Users confirm a detected piece and set optional shopping preferences before sear
 2. Check the scanned color, choose a garment category, and set any shopping preferences.
 3. Select **Confirm and search** to rank sample listings by color and preferences.
 
-The scan samples pixels inside the selected box and compares the median color with catalog swatches. Lighting and anything else inside the box can affect the result. The upload flow uses your garment category and shows color-based results.
+The scan samples pixels inside the selected box and compares the median color with catalog swatches. Lighting and anything else inside the box can affect the result. The selected category limits which sample listings appear.
 
 ## Search the reference dataset with Amazon Bedrock
 
-This mode uses all 5,756 photos available in the publisher’s [CC0 Clothing Dataset archive](https://github.com/alexeygrigorev/clothing-dataset), the lower-resolution edition of the Kaggle dataset. Install Python 3.9+, Node.js 16.9+, AWS CLI v2, and the macOS 14+ command-line developer tools. Configure an AWS CLI profile with `bedrock:InvokeModel` access.
+This mode uses all 5,756 photos available in the publisher’s [CC0 Clothing Dataset archive](https://github.com/alexeygrigorev/clothing-dataset), the lower-resolution edition of the Kaggle dataset. Use macOS 14 or later with Apple Command Line Tools, Python 3.9 or later, Node.js 16.9 or later, and AWS CLI v2. Configure an AWS CLI profile with `bedrock:InvokeModel` access.
 
 ```bash
 python3 scripts/prepare-dataset.py
@@ -49,7 +51,7 @@ The first command downloads the photos, creates the catalog in the ignored `refe
 
 1. Open [Spotted on your Mac](http://127.0.0.1:4173) and upload a garment photo.
 2. Move and resize the scan box to cover the garment. Select **Analyze garment** to send the selected crop to Amazon Bedrock. Bedrock identifies the garment category and visible details.
-3. Spotted compares the crop with the local Apple Vision index and displays up to 12 reference photos that pass the similarity cutoff. If none pass, it displays **No close matches found**.
+3. Spotted uses the detected category to narrow the search, then compares the crop with the local Apple Vision index. It displays up to 12 reference photos that pass the similarity cutoff. If none pass, it displays **No close matches found**.
 
 The default similarity cutoff is `0.68`. Lower `REFERENCE_MAX_DISTANCE` values require a closer visual match. `BEDROCK_MODEL_ID` overrides the default Amazon Nova Lite US inference profile. The server offers the sample catalog workflow when Bedrock is enabled and the dataset index is unavailable.
 
@@ -57,43 +59,34 @@ The default similarity cutoff is `0.68`. Lower `REFERENCE_MAX_DISTANCE` values r
 
 **Analyze garment** is the only action that sends a crop to AWS and can incur a Bedrock charge. Dataset preparation, image matching, and the color preview run locally. Press **Ctrl+C** in the terminal running `node server.js` to stop Spotted and prevent new scans from that server.
 
-## What the scripted walkthrough does
+## Try the scripted walkthrough
 
-1. **Reads your photo.** Detects each clothing piece (cardigan, skirt, bag, shoes), with a confidence level for each. Faces and bystanders are blurred first.
-2. **Finds the same item when it can.** Shows a "likely the same item" match, which visible details match, and what it couldn't check (fabric, true color, fit).
-3. **Finds close alternatives when it can't.** Similar items from new, secondhand and sustainable sellers, each with a "Why this match?" breakdown and a "Before you buy" note.
-4. **Adapts to you.** Tell the assistant "under $50" or "secondhand please" (or use the preference panel). Results re-rank, and a banner shows what moved and why. Every change can be undone.
-5. **Learns from feedback, but asks first.** A thumbs-down asks what's off. Instead of silently changing your preferences, the assistant asks, e.g. "Should I cap your budget at $50?". Anything it infers is labeled *inferred* until you keep or remove it.
-6. **Admits when it doesn't know.** For small or generic items (the loafers, a plain tote), it won't guess an exact match. It explains why and suggests what to do instead.
-7. **Suggests outfits.** AI styling ideas built around the found piece, plus what it would cost to recreate the whole look with your preferences.
-
-## Try it: 2-minute walkthrough
-
-1. Open the [live demo](https://evelynw11.github.io/spotted/) and click **Try the demo photo**.
-2. Watch it detect four pieces. Confirm the cardigan, optionally set a price range or exclude a catalog brand such as TrendMart, then click **Confirm and search**. Leave preferences blank to reproduce the rest of this walkthrough.
-3. **Same item** tab: the likely exact cardigan, with 5 of 5 visible details matching. Click **Compare side by side**.
-4. Open **Ask Spotted** and click **Under $50, please**, then **Secondhand first**. Notice the re-rank banner and how the assistant explains the tradeoffs.
-5. Try **Filters** to adjust the price range or exclude brands. In **Similar**, thumbs-down the TrendMart cardigan and choose **Not sustainable enough**. The assistant asks before hiding fast fashion.
-6. Open **Photo details** and fix the color to *Oatmeal / beige*. The exact match drops out, and the assistant explains why. Open **Filters** and click **Undo**.
-7. Click **Loafers**: low confidence, so it refuses to guess and tells you what would help.
-8. **Outfit ideas** tab: three ways to wear the cardigan, plus the cost of the whole look.
-9. Turn on **Design notes** (top right) to see which HCI concept each feature demonstrates.
+1. Open the hosted or standalone demo and select **Try the demo photo**. The animation illustrates face blurring and detection of four sample pieces.
+2. Keep **Cardigan** selected, leave the shopping preferences blank, and select **Confirm and search**.
+3. In **Same item**, open **Compare side by side** to see the photo and sample listing, with five matching visible details.
+4. Open **Ask Spotted**. Select **Under $50, please**, then **Secondhand first**. Open **Similar** to see the filtered and re-ranked listings.
+5. On the TrendMart cardigan, choose **Not for me** and select **Not sustainable enough**. The demo assistant asks before applying a broader fast-fashion preference.
+6. Open **Filters** and select **Reset** to clear the budget. Return to **Same item**. In **Photo details**, change the cardigan color to *Oatmeal / beige* to see how a correction affects the exact-match result. Use **Undo** in **Filters** to reverse the color correction.
+7. Select **Loafers** to see the example with no confirmed exact match. Return to **Cardigan** and open **Outfit ideas** for styling suggestions and sample totals.
+8. Turn on **Design notes** to see how the walkthrough illustrates the course concepts.
 
 ## Screenshots
 
+These screenshots show the standalone demo, including the scripted walkthrough.
+
 | | |
 |---|---|
-| ![Home](docs/screenshots/01-home.jpg) **Home:** upload a photo or try the demo | ![Analyzing](docs/screenshots/02-analyzing.jpg) **Analyzing:** blur faces, detect pieces with confidence |
-| ![Compare](docs/screenshots/04-compare.jpg) **Compare:** your photo vs. the listing, detail by detail | ![Re-rank](docs/screenshots/05-rerank-similar.jpg) **Re-rank:** results adapt to "under $50, secondhand" |
-| ![Feedback](docs/screenshots/06-feedback-ask.jpg) **Feedback:** the assistant asks before learning a rule | ![No exact match](docs/screenshots/07-no-exact-match.jpg) **Honest uncertainty:** no guessing on low-confidence items |
-| ![Outfit ideas](docs/screenshots/08-outfit-ideas.jpg) **Outfit ideas:** styling suggestions and whole-look cost | ![Design notes](docs/screenshots/09-design-notes.jpg) **Design notes:** presenter mode mapping features to concepts |
+| ![Home with an upload area and sample photos](docs/screenshots/01-home.jpg) **Home** | ![Scripted photo analysis with blur and detection steps](docs/screenshots/02-analyzing.jpg) **Scripted analysis** |
+| ![Comparison of the demo garment and a sample listing](docs/screenshots/04-compare.jpg) **Side-by-side comparison** | ![Similar listings filtered to $50 or less](docs/screenshots/05-rerank-similar.jpg) **Budget and secondhand preferences** |
+| ![Demo assistant asks how to handle fast-fashion results](docs/screenshots/06-feedback-ask.jpg) **Feedback confirmation** | ![Loafers result with no confirmed exact match](docs/screenshots/07-no-exact-match.jpg) **No confirmed exact match** |
+| ![Three cardigan outfit ideas and sample totals](docs/screenshots/08-outfit-ideas.jpg) **Outfit ideas** | ![Scripted results annotated with course concepts](docs/screenshots/09-design-notes.jpg) **Design notes** |
 
 ## Human-AI interaction concepts
 
-| Concept | How Spotted applies it |
+| Concept | How the prototype illustrates it |
 |---|---|
-| **Trust calibration and appropriate reliance** | Each detected piece and detail shows a confidence level ("Sure / Fairly sure / Not sure"). Each result has "Before you buy" and "What I couldn't check" notes. For low-confidence items, it refuses to guess an exact match. |
-| **Explainability** | Match strength is shown as which visible details match (dots), not one opaque score. Every result has a "Why this match?" breakdown, a side-by-side compare table, and an "Explain" link after each re-rank. |
+| **Trust calibration and appropriate reliance** | Each detected piece and detail shows a confidence level ("Sure / Fairly sure / Not sure"). Result cards and comparison views flag details to verify before buying. For low-confidence items, it refuses to guess an exact match. |
+| **Explainability** | Match strength is shown as which visible details match (dots), not one opaque score. Similar cards have a "Why this match?" breakdown, the compare view shows details side by side, and the re-rank banner includes an "Explain" link. |
 | **Dynamic alignment** | Preferences are labeled *you set* or *inferred*. Inferred ones need a Keep or Remove. The assistant asks before turning feedback into a rule, explains tradeoffs (e.g. the exact item is over budget), and every change can be undone. |
 | **Error recovery** | You can correct what the AI *saw* ("the color is actually beige") separately from what you *want* ("show me other colors"), and lock must-have details. |
 | **Privacy** | The color scan runs in the browser. **Analyze garment** sends the selected crop to Bedrock. The scripted walkthrough illustrates face blurring. |
@@ -136,7 +129,7 @@ spotted-demo.html   Self-contained single-file demo
 docs/screenshots/   Screenshots used in this README
 ```
 
-## Roadmap: making it real
+## Roadmap
 
 The places to swap in real models are marked with `// LIVE:` in `app.js`.
 
