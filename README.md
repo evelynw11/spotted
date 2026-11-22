@@ -1,10 +1,14 @@
 # Spotted
 
-**An AI clothing finder for outfits you see in real life.** Upload a photo of an outfit you liked, and Spotted finds where to buy the exact piece, or close alternatives that fit your budget and values. Every result shows *why* it was picked and *what you should double-check* before buying.
+**A clothing search prototype for outfits you see in real life.** Upload a photo, select a garment, and search a reference collection of 5,756 real clothing photos for visually similar pieces. Reference results show simulated prices and conditions.
 
-**[Try the live demo](https://evelynw11.github.io/spotted/)** · [Download the single-file version](spotted-demo.html) (open it in Chrome, no install needed)
+**[Try the hosted demo](https://evelynw11.github.io/spotted/)** · [Open the standalone demo](spotted-demo.html)
 
-> **This is a prototype with a working photo color scan.** Upload your own photo or try the scripted outfit walkthrough. Catalog listings are fictional. Color scanning runs in your browser. Optional garment analysis sends the selected crop to Amazon Bedrock.
+| Mode | What you can try | AWS required |
+|---|---|---|
+| Scripted walkthrough | Explore simulated detections, catalog matches, and shopping preferences with **Try the demo photo**. | No |
+| Local color scan | Upload a photo or choose **Try a real photo**, then search the sample catalog by color. | No |
+| Reference dataset search | Use Bedrock to analyze an uploaded garment and compare it with the full reference collection on your Mac. | Yes |
 
 ![Spotted workspace: the photo with detected pieces, the likely exact match, and the assistant](docs/screenshots/03-same-item.jpg)
 
@@ -24,7 +28,7 @@ People (especially students) who want to buy clothing they've seen in person or 
 
 Users confirm a detected piece and set optional shopping preferences before searching a curated catalog. Price bounds, excluded brands, and secondhand eligibility define which listings can appear. Preferred brands and priorities such as sustainability influence ranking alongside visual similarity. Users can refine these choices after seeing their matches. Live web search is a reach goal.
 
-## Scan your own photo
+## Scan your photo by color
 
 1. Upload or drop a garment photo, or choose one under **Try a real photo**. Drag the scan box over the garment and resize it from the lower-right corner.
 2. Check the scanned color, choose a garment category, and set any shopping preferences.
@@ -34,18 +38,24 @@ The scan samples pixels inside the selected box and compares the median color wi
 
 ## Search the reference dataset with Amazon Bedrock
 
-This mode uses the complete [CC0 Clothing Dataset](https://github.com/alexeygrigorev/clothing-dataset) from the publisher’s GitHub repository, the smaller image resolution version of the Kaggle dataset. Install Python 3.9+, Node.js 16.9+, AWS CLI v2, and the macOS 14+ command-line developer tools. Configure an AWS CLI profile with `bedrock:InvokeModel` access.
+This mode uses all 5,756 photos available in the publisher’s [CC0 Clothing Dataset archive](https://github.com/alexeygrigorev/clothing-dataset), the lower-resolution edition of the Kaggle dataset. Install Python 3.9+, Node.js 16.9+, AWS CLI v2, and the macOS 14+ command-line developer tools. Configure an AWS CLI profile with `bedrock:InvokeModel` access.
 
 ```bash
 python3 scripts/prepare-dataset.py
 BEDROCK_VISION=1 AWS_PROFILE=your-profile AWS_REGION=us-east-1 node server.js
 ```
 
-The first command downloads the photos, creates the catalog in the ignored `reference-data/` directory, and builds a local Apple Vision feature index. It can also use an existing publisher ZIP with `--zip /path/to/dataset.zip`. The setup sends no photos to AWS. Every reference includes the dataset category, audience label, and a stable simulated USD price and condition.
+The first command downloads the photos, creates the catalog in the ignored `reference-data/` directory, and builds a local Apple Vision feature index. It can also use an existing publisher ZIP with `--zip /path/to/dataset.zip`. The setup sends no photos to AWS. Each reference uses its dataset category and audience label when available, with a stable simulated USD price and condition. Photos without labels are still indexed. The publisher archive has five metadata rows whose image files are missing.
 
-Open [http://127.0.0.1:4173](http://127.0.0.1:4173), upload a photo, fit the box around the garment, and select **Analyze garment**. Bedrock analyzes that crop for category and visible details. Spotted compares the crop with the locally indexed photos and shows up to 12 closest references that pass the cutoff. If none pass, it shows **No close matches found**. Reference cards contain simulated shopping data and have no purchase links.
+1. Open [Spotted on your Mac](http://127.0.0.1:4173) and upload a garment photo.
+2. Move and resize the scan box to cover the garment. Select **Analyze garment** to send the selected crop to Amazon Bedrock. Bedrock identifies the garment category and visible details.
+3. Spotted compares the crop with the local Apple Vision index and displays up to 12 reference photos that pass the similarity cutoff. If none pass, it displays **No close matches found**.
 
-`REFERENCE_MAX_DISTANCE` adjusts the Apple Vision distance cutoff (default 0.68). Lower values require a closer image match. `BEDROCK_MODEL_ID` overrides the default Amazon Nova Lite US inference profile. Only **Analyze garment** sends the selected crop to AWS. The standalone HTML and GitHub Pages demo use local color scanning. If you start the server with Bedrock enabled before preparing the dataset, it offers the original sample catalog workflow.
+The default similarity cutoff is `0.68`. Lower `REFERENCE_MAX_DISTANCE` values require a closer visual match. `BEDROCK_MODEL_ID` overrides the default Amazon Nova Lite US inference profile. The server offers the sample catalog workflow when Bedrock is enabled and the dataset index is unavailable.
+
+### AWS usage and stopping the server
+
+**Analyze garment** is the only action that sends a crop to AWS and can incur a Bedrock charge. Dataset preparation, image matching, and the color preview run locally. Press **Ctrl+C** in the terminal running `node server.js` to stop Spotted and prevent new scans from that server.
 
 ## What the scripted walkthrough does
 
@@ -86,22 +96,22 @@ Open [http://127.0.0.1:4173](http://127.0.0.1:4173), upload a photo, fit the box
 | **Explainability** | Match strength is shown as which visible details match (dots), not one opaque score. Every result has a "Why this match?" breakdown, a side-by-side compare table, and an "Explain" link after each re-rank. |
 | **Dynamic alignment** | Preferences are labeled *you set* or *inferred*. Inferred ones need a Keep or Remove. The assistant asks before turning feedback into a rule, explains tradeoffs (e.g. the exact item is over budget), and every change can be undone. |
 | **Error recovery** | You can correct what the AI *saw* ("the color is actually beige") separately from what you *want* ("show me other colors"), and lock must-have details. |
-| **Privacy** | Uploads are processed locally in the browser. The scripted walkthrough illustrates face blurring. |
+| **Privacy** | The color scan runs in the browser. **Analyze garment** sends the selected crop to Bedrock. The scripted walkthrough illustrates face blurring. |
 
-## How the prototype works
+## How the sample catalog works
 
 - **Matching:** Each detected piece has a set of attributes (color, knit, neckline, buttons, length...). Each listing is scored detail by detail (same / close / different), weighted, and labeled *Likely the same item*, *Very close*, *Similar* or *Same vibe*.
 - **Filtering and ranking:** Price bounds, brand exclusions, secondhand eligibility, and explicit fast-fashion exclusions filter the curated catalog before scoring. Visual similarity, preferred brands, sustainability, and other ranking preferences order the eligible results. “Show anyway” can reveal feedback-hidden listings that still meet the catalog filters.
 - **Assistant:** A small keyword parser turns chat messages into preference updates, and scripted responses explain the effect of each change.
 
-## Run it locally
+## Run the standalone demo
 
-No build step or dependencies needed.
+Open the HTML file directly in your browser. The standalone demo requires no setup.
 
 ```bash
 git clone https://github.com/evelynw11/spotted.git
 cd spotted
-open index.html          # or double-click spotted-demo.html
+open spotted-demo.html
 ```
 
 If you edit the code, rebuild the single-file version with Node:
@@ -117,7 +127,10 @@ index.html          App shell
 styles.css          All styles
 app.js              Demo data, photo scanning, matching and ranking, views, events
 server.js           Local web server and Amazon Bedrock garment analysis endpoint
-img/                AI-generated demo photos (street photo, products, outfit flat lays)
+img/                Demo images and three dataset samples
+scripts/prepare-dataset.py      Downloads photos and assigns sample catalog metadata
+scripts/reference-search.m      Builds and searches the local Apple Vision index
+reference-data/                Downloaded photos, catalog, and index (generated locally)
 build.js            Bundles everything into spotted-demo.html
 spotted-demo.html   Self-contained single-file demo
 docs/screenshots/   Screenshots used in this README
