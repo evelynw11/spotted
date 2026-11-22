@@ -4,7 +4,7 @@
 
 **[Try the live demo](https://evelynw11.github.io/spotted/)** · [Download the single-file version](spotted-demo.html) (open it in Chrome, no install needed)
 
-> **This is a clickable prototype.** All AI output is scripted demo data. Store names, prices and listings are made up, and the photos are AI-generated. Nothing is bought or sent anywhere.
+> **This is a prototype with a working photo color scan.** Upload your own photo or try the scripted outfit walkthrough. Catalog listings are fictional. Color scanning runs in your browser. Optional garment analysis sends the selected crop to Amazon Bedrock.
 
 ![Spotted workspace: the photo with detected pieces, the likely exact match, and the assistant](docs/screenshots/03-same-item.jpg)
 
@@ -20,7 +20,31 @@ Reverse image search can find visually similar items, but it can't take into acc
 
 People (especially students) who want to buy clothing they've seen in person or online, but don't know what it is or where to find it.
 
-## What it does
+## Minimum goal
+
+Users confirm a detected piece and set optional shopping preferences before searching a curated catalog. Price bounds, excluded brands, and secondhand eligibility define which listings can appear. Preferred brands and priorities such as sustainability influence ranking alongside visual similarity. Users can refine these choices after seeing their matches. Live web search is a reach goal.
+
+## Scan your own photo
+
+1. Upload or drop a garment photo, or choose one under **Try a real photo**. Drag the scan box over the garment and resize it from the lower-right corner.
+2. Check the scanned color, choose a garment category, and set any shopping preferences.
+3. Select **Confirm and search** to rank sample listings by color and preferences.
+
+The scan samples pixels inside the selected box and compares the median color with catalog swatches. Lighting and anything else inside the box can affect the result. The upload flow uses your garment category and shows color-based results.
+
+## Enable Amazon Bedrock garment analysis
+
+Install Node.js 16.9 or later and AWS CLI v2 on macOS or Linux. Configure an AWS CLI profile with permission to invoke the model in Bedrock (`bedrock:InvokeModel`). If your profile uses IAM Identity Center, sign in with `aws sso login --profile your-profile`.
+
+```bash
+BEDROCK_VISION=1 AWS_PROFILE=your-profile AWS_REGION=us-east-1 node server.js
+```
+
+Open [http://127.0.0.1:4173](http://127.0.0.1:4173), upload a photo, adjust the box, and click **Analyze garment**. Review or correct the suggested category and visible details before selecting **Confirm and search**. Spotted ranks the sample catalog using confirmed details and falls back to color when no details can be compared.
+
+The server uses the AWS CLI credential chain. Clicking **Analyze garment** sends the selected JPEG crop to Bedrock. The default is Amazon Nova Lite via the US inference profile. Set `BEDROCK_MODEL_ID` and `AWS_REGION` for a different supported model or region. The standalone HTML and GitHub Pages demo offer local color scanning.
+
+## What the scripted walkthrough does
 
 1. **Reads your photo.** Detects each clothing piece (cardigan, skirt, bag, shoes), with a confidence level for each. Faces and bystanders are blurred first.
 2. **Finds the same item when it can.** Shows a "likely the same item" match, which visible details match, and what it couldn't check (fabric, true color, fit).
@@ -33,10 +57,10 @@ People (especially students) who want to buy clothing they've seen in person or 
 ## Try it: 2-minute walkthrough
 
 1. Open the [live demo](https://evelynw11.github.io/spotted/) and click **Try the demo photo**.
-2. Watch it blur faces, detect 4 pieces, and search.
+2. Watch it detect four pieces. Confirm the cardigan, optionally set a price range or exclude a catalog brand such as TrendMart, then click **Confirm and search**. Leave preferences blank to reproduce the rest of this walkthrough.
 3. **Same item** tab: the likely exact cardigan, with 5 of 5 visible details matching. Click **Compare side by side**.
 4. Open **Ask Spotted** and click **Under $50, please**, then **Secondhand first**. Notice the re-rank banner and how the assistant explains the tradeoffs.
-5. **Similar** tab: thumbs-down the TrendMart cardigan and choose **Not sustainable enough**. The assistant asks before hiding fast fashion.
+5. Try **Filters** to adjust the price range or exclude brands. In **Similar**, thumbs-down the TrendMart cardigan and choose **Not sustainable enough**. The assistant asks before hiding fast fashion.
 6. Open **Photo details** and fix the color to *Oatmeal / beige*. The exact match drops out, and the assistant explains why. Open **Filters** and click **Undo**.
 7. Click **Loafers**: low confidence, so it refuses to guess and tells you what would help.
 8. **Outfit ideas** tab: three ways to wear the cardigan, plus the cost of the whole look.
@@ -59,12 +83,12 @@ People (especially students) who want to buy clothing they've seen in person or 
 | **Explainability** | Match strength is shown as which visible details match (dots), not one opaque score. Every result has a "Why this match?" breakdown, a side-by-side compare table, and an "Explain" link after each re-rank. |
 | **Dynamic alignment** | Preferences are labeled *you set* or *inferred*. Inferred ones need a Keep or Remove. The assistant asks before turning feedback into a rule, explains tradeoffs (e.g. the exact item is over budget), and every change can be undone. |
 | **Error recovery** | You can correct what the AI *saw* ("the color is actually beige") separately from what you *want* ("show me other colors"), and lock must-have details. |
-| **Privacy** | Faces and bystanders are blurred before analysis. Spotted searches for clothes, never for people. |
+| **Privacy** | Uploads are processed locally in the browser. The scripted walkthrough illustrates face blurring. |
 
 ## How the prototype works
 
 - **Matching:** Each detected piece has a set of attributes (color, knit, neckline, buttons, length...). Each listing is scored detail by detail (same / close / different), weighted, and labeled *Likely the same item*, *Very close*, *Similar* or *Same vibe*.
-- **Ranking:** Visual match counts most. Preferences (budget, secondhand or sustainable, size, fast fashion, "longer") then move items up or down, or hide them. Hidden items can always be shown again.
+- **Filtering and ranking:** Price bounds, brand exclusions, secondhand eligibility, and explicit fast-fashion exclusions filter the curated catalog before scoring. Visual similarity, preferred brands, sustainability, and other ranking preferences order the eligible results. “Show anyway” can reveal feedback-hidden listings that still meet the catalog filters.
 - **Assistant:** A small keyword parser turns chat messages into preference updates, and scripted responses explain the effect of each change.
 
 ## Run it locally
@@ -88,7 +112,8 @@ node build.js            # writes spotted-demo.html with CSS, JS and images inli
 ```
 index.html          App shell
 styles.css          All styles
-app.js              Demo data, matching and ranking, assistant, views, events
+app.js              Demo data, photo scanning, matching and ranking, views, events
+server.js           Local web server and Amazon Bedrock garment analysis endpoint
 img/                AI-generated demo photos (street photo, products, outfit flat lays)
 build.js            Bundles everything into spotted-demo.html
 spotted-demo.html   Self-contained single-file demo
@@ -101,11 +126,11 @@ The places to swap in real models are marked with `// LIVE:` in `app.js`.
 
 | Prototype piece | Real version |
 |---|---|
-| `ITEMS` (detected pieces, boxes, attributes, confidence) | Gemini vision, returning JSON with boxes, attributes and a confidence per attribute |
-| `PRODUCTS` (shopping matches) | Google Lens via SerpAPI on each cropped piece |
-| `OUTFITS` and assistant replies | An LLM (e.g. Gemini free tier) given the attributes and the user's preferences |
+| `ITEMS` (detected pieces, boxes, attributes, confidence) | A vision model returning JSON with boxes, attributes and a confidence per attribute |
+| `PRODUCTS` (curated demo catalog) | Expand the preference-filterable collection. Live product search is a reach goal. |
+| `OUTFITS` and assistant replies | A language model given the attributes and the user's preferences |
 | `handleUserText` keyword parser | An LLM call that returns structured preference updates |
-| Upload button (currently runs the demo photo) | Real upload, with on-device face blurring before anything is sent |
+| Uploaded photo (local color scan or Bedrock analysis of a selected crop) | Detect multiple garment regions automatically |
 
 ## Course context
 
@@ -113,4 +138,4 @@ Built as a project prototype for **05-318 Human-AI Interaction** at Carnegie Mel
 
 ## Disclaimer
 
-All brands, stores, prices and listings in this demo are fictional. All images were generated with AI for demonstration purposes and do not depict real people or real products.
+All brands, stores, prices and listings in this demo are fictional. The scripted walkthrough and fictional catalog use AI-generated images. **Try a real photo** uses three real skirt images from Alexey Grigorev’s [CC0 Clothing Dataset](https://github.com/alexeygrigorev/clothing-dataset), the lower-resolution source for the [Kaggle dataset](https://www.kaggle.com/datasets/agrigorev/clothing-dataset-full). The sample image IDs in display order are `70045b01-b350-4918-be74-2f627290ad7a`, `d44cfac9-3fda-47ba-8eb1-8b130f60b08c`, and `f8b84112-9110-4628-91e8-9d22a13767f3`.

@@ -62,7 +62,7 @@ const sim = (a, b) => a === b ? 1 : (SIM[a + '|' + b] ?? SIM[b + '|' + a] ?? 0);
 const HERO_RATIO = 733 / 1100; // width / height of hero.jpg
 const BLURS = [{ l: 45.2, t: 7.2, w: 13.6, h: 10.4 }, { l: 81, t: 28.2, w: 6.6, h: 4.8 }];
 
-// LIVE: replace ITEMS with the output of a vision model (Gemini) that returns boxes + attributes + confidence.
+// LIVE: replace ITEMS with the output of a vision model that returns boxes + attributes + confidence.
 const ITEMS = {
   cardigan: {
     label: 'Cardigan', name: 'Cropped cream cable-knit cardigan', conf: 94, box: { l: 28.5, t: 20.5, w: 43, h: 30 },
@@ -182,21 +182,61 @@ const NOTES = {
 const note = k => `<div class="dnote">${ic('sparkle', 13)}<div><b>${NOTES[k][0]}</b>${NOTES[k][1]}</div></div>`;
 
 /* ---------- state ---------- */
-const freshPrefs = () => ({ budget: null, style: null, fast: null, size: null, length: null, lessBrands: [], shapeBoost: false, colorFlex: false });
+const freshPrefs = () => ({ minPrice: null, budget: null, preferredBrands: [], excludedBrands: [], secondhand: null, style: null, fast: null, size: null, length: null, lessBrands: [], shapeBoost: false, colorFlex: false });
 function freshState() {
   const attrValues = {};
   for (const [k, it] of Object.entries(ITEMS)) { attrValues[k] = {}; for (const a of it.attrs) attrValues[k][a.key] = a.value; }
   return {
+    photo: null,
     view: 'home', step: 0, item: 'cardigan', tab: 'same', sort: 'best',
     attrValues, corrected: {}, locks: {}, prefs: freshPrefs(), meta: {},
     hidden: [], liked: [], saved: [], expanded: [], popover: null, editing: null, showHidden: false,
-    chat: [], log: [], moves: {}, rerank: null, modal: null, visited: { cardigan: true },
+    chat: [], log: [], moves: {}, rerank: null, modal: null, visited: {},
   };
 }
 let state = freshState();
 let notesOn = false;
 let logSeq = 0;
 let timer = null;
+
+/* ---------- uploaded photo scan ---------- */
+const SCAN_COLORS = {
+  white: [248, 247, 244], ivory: [231, 225, 209], cream: [223, 205, 176],
+  beige: [182, 161, 135], brownplaid: [107, 82, 66], beigeplaid: [171, 146, 119],
+  natural: [192, 175, 145], black: [39, 38, 38],
+};
+const SCAN_CROP = { l: 30, t: 30, w: 40, h: 40 };
+const MIN_SCAN_SIZE = 8;
+const colorDistance = (a, b) => Math.hypot(...a.map((channel, index) => channel - b[index]));
+
+function scanColor(image, region) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 32;
+  const ctx = canvas.getContext('2d');
+  const { naturalWidth: width, naturalHeight: height } = image;
+  const { l, t, w, h } = region;
+  ctx.drawImage(image, width * l / 100, height * t / 100, width * w / 100, height * h / 100, 0, 0, 32, 32);
+  const pixels = ctx.getImageData(0, 0, 32, 32).data;
+  const channels = [[], [], []];
+  for (let i = 0; i < pixels.length; i += 4) {
+    if (pixels[i + 3] < 128) continue;
+    channels.forEach((values, channel) => values.push(pixels[i + channel]));
+  }
+  if (!channels[0].length) return null;
+  return channels.map(values => values.sort((a, b) => a - b)[Math.floor(values.length / 2)]);
+}
+
+function scanMatch(product) {
+  const key = ['color', 'pattern', 'tcolor', 'lcolor'].find(key => product.attrs[key]);
+  const color = product.attrs[key];
+  const pct = Math.round(100 * (1 - colorDistance(state.photo.rgb, SCAN_COLORS[color]) / Math.hypot(255, 255, 255)));
+  return { pct, rows: [], nMatch: 0, n: 0, color };
+}
+
+function photoSwatch() {
+  if (!state.photo.rgb) return '';
+  return `<span class="scan-swatch" style="background:rgb(${state.photo.rgb.join(',')})"></span>`;
+}
 
 /* ---------- matching + ranking ---------- */
 function weightFor(a) {
@@ -206,15 +246,20 @@ function weightFor(a) {
   return w;
 }
 function matchInfo(p) {
-  const it = ITEMS[p.item], vals = state.attrValues[p.item];
+  const confirmed = state.photo?.confirmed;
+  if (state.photo && confirmed?.category !== p.item) return scanMatch(p);
+  const it = ITEMS[p.item], vals = confirmed?.attributes || state.attrValues[p.item];
   let tot = 0, got = 0; const rows = [];
   for (const a of it.attrs) {
     if (!a.w) continue;
-    const target = vals[a.key], pv = p.attrs[a.key], s = sim(target, pv), w = weightFor(a);
+    const target = vals[a.key], pv = p.attrs[a.key];
+    if (confirmed && (!target || target === 'unknown' || !pv)) continue;
+    const s = sim(target, pv), w = weightFor(a);
     tot += w; got += w * s;
     rows.push({ a, target, pv, s, status: s >= .85 ? 'match' : s >= .45 ? 'partial' : 'diff' });
   }
-  const pct = Math.round(p.visual * (got / tot) * 100);
+  if (state.photo && !tot) return scanMatch(p);
+  const pct = Math.round((state.photo ? 1 : p.visual) * (got / tot) * 100);
   return { pct, rows, nMatch: rows.filter(r => r.status === 'match').length, n: rows.length };
 }
 const matchLabel = pct => pct >= 85 ? 'Likely the same item' : pct >= 70 ? 'Very close' : pct >= 50 ? 'Similar' : 'Same vibe';
@@ -224,10 +269,9 @@ const isClothing = p => ['cardigan', 'skirt'].includes(p.item);
 function prefEffects(p) {
   const P = state.prefs; let adj = 0; const chips = []; let hidden = null;
   if (state.hidden.includes(p.id)) hidden = 'you passed on it';
-  if (p.kind === 'fast' && P.fast === 'hide') hidden = hidden || 'ultra-fast fashion';
-  if (P.budget != null) {
-    if (p.price > P.budget) { const over = p.price - P.budget; adj -= 30 + over; chips.push(['warn', `${money(Math.round(over))} over budget`]); }
-    else chips.push(['good', 'Within budget']);
+  if (P.budget != null || P.minPrice != null) chips.push(['good', 'Within price range']);
+  if (P.preferredBrands.some(brand => brand.toLowerCase() === p.brand.toLowerCase())) {
+    adj += 15; chips.push(['good', 'Preferred brand']);
   }
   if (P.style === 'secondhand' && p.kind === 'secondhand') { adj += 15; chips.push(['good', 'Secondhand']); }
   if (P.style === 'sustainable' && p.sustain.level === 'good') { adj += 12; chips.push(['good', 'Sustainable pick']); }
@@ -249,15 +293,24 @@ const SORTERS = {
   price: (a, b) => a.p.price - b.p.price,
   sustain: (a, b) => SUS[a.p.sustain.level] - SUS[b.p.sustain.level] || b.m.pct - a.m.pct,
 };
+function catalogFor(item) {
+  const P = state.prefs;
+  return PRODUCTS.filter(p => p.item === item &&
+    (P.minPrice == null || p.price >= P.minPrice) &&
+    (P.budget == null || p.price <= P.budget) &&
+    !P.excludedBrands.some(brand => brand.toLowerCase() === p.brand.toLowerCase()) &&
+    (P.secondhand !== 'exclude' || p.kind !== 'secondhand') &&
+    (P.fast !== 'hide' || p.kind !== 'fast'));
+}
 function ranked(item) {
-  const all = PRODUCTS.filter(p => p.item === item).map(p => {
+  const all = catalogFor(item).map(p => {
     const m = matchInfo(p), e = prefEffects(p);
     const lockFails = m.rows.filter(r => state.locks[`${item}.${r.a.key}`] && r.status === 'diff');
     return { p, m, e, lockFails, score: m.pct + e.adj };
   });
-  const canExact = !ITEMS[item].noExact;
+  const canExact = !state.photo && !ITEMS[item].noExact;
   const sameAll = all.filter(x => canExact && x.m.pct >= 85);
-  const same = sameAll.filter(x => !x.e.hidden);
+  const same = sameAll.filter(x => !x.e.hidden).sort(SORTERS.best);
   const sameHidden = sameAll.filter(x => x.e.hidden);
   const rest = all.filter(x => !sameAll.includes(x));
   const hiddenPrefs = rest.filter(x => x.e.hidden);
@@ -294,7 +347,11 @@ function undoLast() {
 }
 function prefSummary() {
   const P = state.prefs, out = [];
-  if (P.budget != null) out.push(`under $${P.budget}`);
+  if (P.minPrice != null) out.push(`from ${money(P.minPrice)}`);
+  if (P.budget != null) out.push(`up to ${money(P.budget)}`);
+  if (P.preferredBrands.length) out.push(`prefer ${P.preferredBrands.join(', ')}`);
+  if (P.excludedBrands.length) out.push(`exclude ${P.excludedBrands.join(', ')}`);
+  if (P.secondhand === 'exclude') out.push('new items only');
   if (P.style === 'secondhand') out.push('secondhand first');
   if (P.style === 'sustainable') out.push('sustainable first');
   if (P.fast === 'lower') out.push('fast fashion lower');
@@ -311,25 +368,21 @@ function prefSummary() {
 /* ---------- AI copy (scripted) ---------- */
 // LIVE: these would come from an LLM given the ranked list + preference state.
 function effectSummary() {
-  const R = ranked(state.item), it = ITEMS[state.item], P = state.prefs, parts = [];
+  const R = ranked(state.item), P = state.prefs, parts = [];
   const top = R.visible[0];
   if (top) parts.push(`Top similar pick is now <b>${esc(top.p.title)}</b> (${money(top.p.price)}${top.p.kind === 'secondhand' ? ', secondhand' : top.p.sustain.level === 'good' ? ', sustainable' : ''}).`);
   if (P.style === 'secondhand' && top && top.p.kind !== 'secondhand') {
     const i = R.visible.findIndex(x => x.p.kind === 'secondhand');
-    if (i > 0) { const x = R.visible[i]; parts.push(`The best secondhand option, <b>${esc(x.p.title)}</b> (${money(x.p.price)}), is #${i + 1} because it looks less like your photo (${x.m.nMatch} of ${x.m.n} details). I boosted it, but not above much closer matches.`); }
+    if (i > 0) { const x = R.visible[i]; parts.push(`The best secondhand option, <b>${esc(x.p.title)}</b> (${money(x.p.price)}), is #${i + 1} because it looks less like your photo (${x.m.color ? `${x.m.pct}% color similarity` : `${x.m.nMatch} of ${x.m.n} details`}). I boosted it, but not above much closer matches.`); }
     else if (i === -1) parts.push(`I couldn't find a secondhand ${ITEMS[state.item].label.toLowerCase()} that looks like yours yet.`);
   }
   if (P.length === 'longer' && top && ['cardigan', 'skirt'].includes(state.item)) {
     const isLong = x => x.p.attrs.length === 'hip' || x.p.attrs.slen === 'knee';
     const i = R.visible.findIndex(isLong);
-    if (i > 0) { const x = R.visible[i]; parts.push(`The longest option, <b>${esc(x.p.title)}</b>, is #${i + 1}: I boosted it, but it looks less like your photo (${x.m.nMatch} of ${x.m.n} details).`); }
+    if (i > 0) { const x = R.visible[i]; parts.push(`The longest option, <b>${esc(x.p.title)}</b>, is #${i + 1}: I boosted it, but it looks less like your photo (${x.m.color ? `${x.m.pct}% color similarity` : `${x.m.nMatch} of ${x.m.n} details`}).`); }
   }
-  if (P.budget != null) {
-    const all = PRODUCTS.filter(p => p.item === state.item), ok = all.filter(p => p.price <= P.budget).length;
-    parts.push(`${ok} of ${all.length} ${it.label.toLowerCase()} options fit a $${P.budget} budget.`);
-    const ex = R.same.find(x => x.p.price > P.budget);
-    if (ex) parts.push(`Heads up: the likely-exact one is ${money(ex.p.price)}, over your budget. I kept it under Same item (marked) instead of hiding it, in case it's worth the splurge.`);
-  }
+  if (!R.all.length) parts.push('No catalog items fit your filters for this piece. You can adjust them in Filters.');
+  else if (!R.same.length && !top) parts.push('No results are visible for this piece.');
   const hid = R.hiddenAll.length;
   if (hid) parts.push(`${hid} ${hid > 1 ? 'are' : 'is'} hidden, but you can still show ${hid > 1 ? 'them' : 'it'} at the bottom of Similar.`);
   return parts.join(' ') || 'Done. Nothing moved for this piece.';
@@ -338,29 +391,27 @@ function explainTop() {
   const R = ranked(state.item);
   const x = (state.tab === 'same' && R.same[0]) || R.visible[0];
   if (!x) return "There's nothing to rank for this piece right now.";
+  if (x.m.color) return `<b>${esc(x.p.title)}</b> leads the sample results based on the scanned color and your preferences.`;
   const m = x.m.rows.filter(r => r.status === 'match').map(r => r.a.label.toLowerCase());
   const d = x.m.rows.filter(r => r.status !== 'match').map(r => `${r.a.label.toLowerCase()} (${LABELS[r.pv].toLowerCase()} vs. ${LABELS[r.target].toLowerCase()} in your photo)`);
   const good = x.e.chips.filter(c => c[0] === 'good').map(c => c[1].toLowerCase());
-  return `<b>${esc(x.p.title)}</b> is first because ${x.m.nMatch} of ${x.m.n} visible details match (${m.join(', ') || 'none'})${good.length ? `, and it fits what you told me (${good.join(', ')})` : ''}.${d.length ? ` It differs on ${d.join(', ')}.` : ''}<br><br>How I rank: how closely it looks like your photo counts most. Your preferences then move things up or down.`;
+  return `<b>${esc(x.p.title)}</b> is first because ${x.m.nMatch} of ${x.m.n} visible details match (${m.join(', ') || 'none'})${good.length ? `, and it fits what you told me (${good.join(', ')})` : ''}.${d.length ? ` It differs on ${d.join(', ')}.` : ''}<br><br>I filter the catalog first, then rank eligible items by appearance and shopping preferences.`;
 }
 function explainItem(k) {
+  if (state.photo) return explainTop();
   if (k === 'loafers') return "The loafers are small in your photo (about 5% of it) and seen at an angle. I can tell they're black penny loafers, but not the sole or the brand. So my best result is labeled <b>Very close</b>, not <b>Same item</b>. A closer photo of the shoes would help.";
   if (k === 'tote') return "It's a plain canvas tote with no visible logo. Hundreds of brands sell nearly identical ones, so calling anything an exact match would be a guess. I'd rather say so than make one up.";
   return explainTop();
 }
 const TRUST = "Trust me most on what's clearly visible: color, pattern, shape, and details like buttons. Double-check what a photo can't show: fabric, the true shade, sizing, and whether a plain item is really the same brand. Each result has a <b>Before you buy</b> note with what to verify.";
 
-function greet() {
-  aiSay(`I found <b>4 pieces</b> in your photo. I'm most sure about the <b>cardigan</b> and least sure about the <b>loafers</b>, which are small and at an angle.<br><br>Good news: Mabel &amp; Co.'s <b>Pearl Button Cropped Cable Cardigan</b> ($78) looks like the same item. All 5 visible details match.<br><br>Anything I should keep in mind? A budget, your size, or secondhand / sustainable options?`, null, 900);
-}
 function onItemVisit(k) {
-  if (state.visited[k]) return; state.visited[k] = true;
-  const msg = {
-    skirt: "The skirt looks like Wren Studio's <b>Plaid Pleated Mini Skirt</b> ($56). I couldn't see the waistband well because the cardigan covers it, so check the listing's close-ups.",
-    tote: "Heads up on the tote: it's plain with no logo, so I <b>won't call anything an exact match</b>. The one I found is a lookalike.",
-    loafers: "Heads up: I'm only <b>58% sure</b> about the loafers. They're small and at an angle, so treat these results as ideas, not the exact pair.",
-  }[k];
-  if (msg) aiSay(msg, null, 600);
+  if (state.visited[k]) return;
+  state.visited[k] = true;
+  const exact = ranked(k).same[0];
+  aiSay(exact
+    ? `<b>${esc(exact.p.title)}</b> (${money(exact.p.price)}) looks like the same item. ${exact.m.nMatch} visible details match.`
+    : effectSummary(), null, 500);
 }
 
 /* ---------- chat ---------- */
@@ -384,7 +435,15 @@ function handleUserText(raw) {
   state.chat.push({ role: 'user', html: esc(raw) });
   const muts = [], changes = [], replies = [];
   let m = t.match(/(?:under|below|less than|max(?:imum)?|budget(?: is| of)?|up to|no more than|cheaper than|<)\s*\$?\s*(\d{2,4})/) || t.match(/\$\s*(\d{2,4})/);
-  if (m) { const b = +m[1]; muts.push(() => { state.prefs.budget = b; state.meta.budget = 'said'; }); changes.push(`budget up to $${b}`); }
+  if (m) {
+    const budget = +m[1];
+    if (state.prefs.minPrice != null && budget < state.prefs.minPrice) {
+      aiSay(`That maximum is below your ${money(state.prefs.minPrice)} minimum. Change the price range in Filters.`);
+      return;
+    }
+    muts.push(() => { state.prefs.budget = budget; state.meta.budget = 'said'; });
+    changes.push(`budget up to ${money(budget)}`);
+  }
   if (/second ?hand|thrift|\bused\b|vintage|resale|pre-?loved|depop|poshmark/.test(t)) { muts.push(() => { state.prefs.style = 'secondhand'; state.meta.style = 'said'; }); changes.push('secondhand first'); }
   else if (/sustainab|\beco\b|organic|ethical|environment/.test(t)) { muts.push(() => { state.prefs.style = 'sustainable'; state.meta.style = 'said'; }); changes.push('sustainable brands first'); }
   if (/fast.?fashion|shein|temu|trendmart/.test(t)) {
@@ -405,15 +464,18 @@ function handleUserText(raw) {
     const k = itemWord ? ({ bag: 'tote', tote: 'tote', loafer: 'loafers', loafers: 'loafers', shoe: 'loafers', shoes: 'loafers', skirt: 'skirt' })[itemWord[1]] : null;
     replies.push(k ? explainItem(k) : (/(exact|no exact|same item)/.test(t) ? explainItem(state.item) : explainTop()));
   } else if (/trust|\bsure\b|confident|accurate|reliable|believe/.test(t)) {
-    replies.push(TRUST);
+    replies.push(state.photo ? "Spotted compares the visible details you confirmed, or uses the scanned color when no details are available. Lighting and background can affect the result." : TRUST);
   }
-  if (/outfit|style (it|this|me)|wear (it|this)|pair|go with|styling/.test(t)) {
+  if (state.photo && /outfit|style (it|this|me)|wear (it|this)|pair|go with|styling/.test(t)) {
+    replies.push('Outfit ideas are available with the demo photo.');
+  } else if (!state.photo && /outfit|style (it|this|me)|wear (it|this)|pair|go with|styling/.test(t)) {
     state.item = 'cardigan'; state.tab = 'outfits'; state.moves = {}; state.rerank = null;
     replies.push("Here are three ways to wear the cardigan, plus what the whole look would cost with your current preferences. These are styling ideas I generated, not products I checked.");
   } else if (itemWord && !muts.length && !replies.length) {
     const k = ({ bag: 'tote', tote: 'tote', loafer: 'loafers', loafers: 'loafers', shoe: 'loafers', shoes: 'loafers', skirt: 'skirt', cardigan: 'cardigan', sweater: 'cardigan' })[itemWord[1]];
     pickItem(k, true);
-    replies.push(`Switched to the ${ITEMS[k].label.toLowerCase()}. ${ITEMS[k].confNote}`);
+    if (state.photo) replies.push(`Searching the ${ITEMS[k].label.toLowerCase()} sample listings.`);
+    else replies.push(`Switched to the ${ITEMS[k].label.toLowerCase()}. ${ITEMS[k].confNote}`);
   }
   if (/^(thanks|thank you|ty|cool|nice|great)/.test(t) && !replies.length) replies.push('Anytime! Save anything you like with the heart and it will stay in your Saved list.');
   if (!replies.length) replies.push(`I'm a prototype, so I only understand a few things right now: a budget ("under $50"), secondhand or sustainable, your size, avoiding fast fashion, "something longer", and "why" questions.`);
@@ -430,18 +492,22 @@ function passReason(id, reason) {
   const P = state.prefs;
   if (reason === 'price') {
     if (P.budget == null) {
-      const capV = Math.max(20, Math.floor((p.price * 0.75) / 10) * 10);
+      const capV = Math.max(P.minPrice ?? 0, 20, Math.floor((p.price * 0.75) / 10) * 10);
       aiSay(`Got it, ${money(p.price)} is more than you want to spend. Should I set a budget so I stop showing pricier things?`, [
         { label: `Yes, cap at $${capV}`, fn: () => { applyChange(() => { state.prefs.budget = capV; state.meta.budget = 'inferred'; }, `budget up to $${capV}`, 'inferred'); aiSay(`Done. I marked the budget as <b>inferred</b> in your preferences, so you can keep or remove it. ${effectSummary()}`); } },
         { label: 'No, just this one', fn: () => aiSay("Okay. I only hid that one and didn't change your budget.") },
       ]);
-    } else aiSay(`Noted. It's within your $${P.budget} budget, so I kept the budget as is and just hid this one.`);
+    } else aiSay('I hid that listing. You can lower your maximum price in Filters.');
+  } else if (reason === 'color' && state.photo) {
+    aiSay('I hid that listing. To scan a different color, choose New photo and use a close-up of the garment.');
   } else if (reason === 'color') {
     const key = ITEMS[p.item].attrs[0].key;
     aiSay('Quick check so I learn the right thing: did I read the color wrong in your photo, or do you just want a different color than the one in the photo?', [
       { label: 'You read it wrong', fn: () => { state.editing = `${p.item}.${key}`; renderPhoto(); const details = $('#photoDetails'); details.open = true; details.querySelector('.attr-edit button')?.focus(); aiSay('Pick the right color in <b>Photo details</b> to update the matches.'); } },
       { label: 'I want other colors', fn: () => { applyChange(() => { state.prefs.colorFlex = true; state.meta.colorFlex = 'inferred'; }, 'open to other colors', 'inferred'); aiSay("Got it. I'll care less about color and more about knit and shape. It's marked as inferred above, so you can remove it anytime."); } },
     ]);
+  } else if (reason === 'shape' && state.photo) {
+    aiSay('I hid that listing. Try asking for something longer if length is what you want to change.');
   } else if (reason === 'shape') {
     aiSay('Should I weigh fit and shape (length, neckline, pleats) more heavily from now on?', [
       { label: 'Yes', fn: () => { applyChange(() => { state.prefs.shapeBoost = true; state.meta.shapeBoost = 'inferred'; }, 'fit & shape matter more', 'inferred'); aiSay(`Done. ${effectSummary()}`); } },
@@ -506,6 +572,8 @@ function renderTop() {
     </div>`;
 }
 
+const DATASET_PHOTOS = ['dataset_skirt_1', 'dataset_skirt_2', 'dataset_skirt_3'];
+
 function viewHome() {
   return `<section class="home">
     <div>
@@ -515,16 +583,23 @@ function viewHome() {
     </div>
     <div class="upload-card">
       <label class="drop" id="drop">
-        <input type="file" accept="image/*" id="file" hidden>
+        <input type="file" accept="image/*" id="file" aria-label="Upload a photo">
         <div class="drop-ic">${ic('upload', 26)}</div>
-        <b>Drop a photo or screenshot</b><span>or click to browse</span>
+        <b>Drop a photo or screenshot</b><span>Choose an area for the color scan</span>
       </label>
+      <p class="hint" id="uploadStatus" role="status"></p>
       <div class="or"><span>or</span></div>
       <button class="sample" data-act="useSample">
         <img src="${IMG('hero')}" alt="Demo street photo">
         <div><b>Try the demo photo</b></div>${ic('arrow', 16)}
       </button>
-      <div class="privacy">${ic('shield', 18)}<span>Prototype with sample matches. Your photo stays on this device.</span></div>
+      <div class="dataset-samples">
+        <h2>Try a real photo</h2>
+        <div class="dataset-photos">${DATASET_PHOTOS.map((key, i) => `<button type="button" data-act="useDatasetPhoto" data-arg="${key}" aria-label="Scan skirt photo ${i + 1}">
+          <img src="${IMG(key)}" alt=""><span>Skirt ${i + 1}</span>
+        </button>`).join('')}</div>
+      </div>
+      <div class="privacy">${ic('shield', 18)}<span>${window.__VISION ? 'Color scanning stays on this device. Garment analysis sends the selected crop to Amazon Bedrock.' : 'Prototype with sample matches. Your photo stays on this device.'}</span></div>
     </div>
   </section>`;
 }
@@ -532,9 +607,15 @@ function viewHome() {
 const STEPS = [
   ['Blurring faces and bystanders', '2 blurred'],
   ['Finding clothing items', '4 found'],
-  ['Finding sample matches', 'Ready'],
 ];
 function photoStage({ interactive = false, blur = true, boxes = true, scan = false } = {}) {
+  if (state.photo) {
+    const editable = state.view === 'setup';
+    return `<div class="stage scan-photo"><img src="${state.photo.url}" alt="Your uploaded garment photo">
+      <div class="scan-region ${editable ? 'scan-editable' : ''}" style="${pos(state.photo.region)}">
+        ${editable ? '<button type="button" class="scan-move" aria-label="Move scan box" aria-describedby="scanHelp"></button><button type="button" class="scan-resize" aria-label="Resize scan box" aria-describedby="scanHelp"></button>' : ''}
+      </div></div>`;
+  }
   return `<div class="stage">
     <img src="${IMG('hero')}" alt="Street photo of an outfit">
     ${BLURS.map(b => `<div class="blur ${blur ? 'on' : ''}" style="${pos(b)}"></div>`).join('')}
@@ -559,12 +640,54 @@ function updateAnalyzing() {
   document.querySelectorAll('#anStage .box').forEach(b => b.classList.toggle('on', state.step >= 2));
 }
 
+const options = (choices, value) => choices.map(([key, label]) =>
+  `<option value="${key}" ${(value ?? '') === key ? 'selected' : ''}>${label}</option>`).join('');
+
+function shoppingFields(tag = () => '') {
+  const P = state.prefs;
+  return `<div class="pref-grid">
+    <div class="pref"><label class="pref-l" for="minPrice">Min price ($)</label><input id="minPrice" name="minPrice" type="number" min="0" step="0.01" placeholder="Any" value="${P.minPrice ?? ''}"></div>
+    <div class="pref"><label class="pref-l" for="budget">Max price ($)</label>${tag('budget')}<input id="budget" name="budget" type="number" min="0" step="0.01" placeholder="Any" value="${P.budget ?? ''}"></div>
+    <label class="pref"><span class="pref-l">Preferred brands</span><input name="preferredBrands" placeholder="e.g. Northfield" value="${esc(P.preferredBrands.join(', '))}"></label>
+    <label class="pref"><span class="pref-l">Excluded brands</span><input name="excludedBrands" placeholder="e.g. TrendMart" value="${esc(P.excludedBrands.join(', '))}"></label>
+    <label class="pref"><span class="pref-l">Secondhand</span><select name="secondhand">${options([['', 'Include'], ['exclude', 'New items only']], P.secondhand)}</select></label>
+    <div class="pref"><label class="pref-l" for="style">Rank higher</label>${tag('style')}<select id="style" name="style">${options([['', 'Closest match'], ['secondhand', 'Secondhand'], ['sustainable', 'Sustainable']], P.style)}</select></div>
+  </div>
+  <p class="hint">Separate brands with commas. Preferred brands rank higher. Excluded brands stay out of results.</p>`;
+}
+
+function detectedDetails(key) {
+  if (state.photo) return `Search the sample ${ITEMS[key].label.toLowerCase()} listings by confirmed details or scanned color.`;
+  const item = ITEMS[key];
+  return `${esc(item.name)}. ${esc(item.confNote)}`;
+}
+
+function viewSetup() {
+  return `<section class="ws">
+    <div class="panel">
+      <h2>Confirm the piece and set your preferences</h2>
+      <p class="muted">Spotted searches a curated demo catalog using your preferences.</p>
+      <form class="shopping-form" data-shopping>
+        <label class="pref"><span class="pref-l">Which piece are you looking for?</span>
+          <select name="item">${Object.entries(ITEMS).map(([key, item]) => `<option value="${key}" ${key === state.item ? 'selected' : ''}>${item.label}${state.photo ? '' : ` · ${item.conf}% detected`}</option>`).join('')}</select>
+        </label>
+        <p class="hint" id="detectedDetails" aria-live="polite">${detectedDetails(state.item)}</p>
+        ${state.photo ? '<div id="visionReview"></div>' : ''}
+        ${shoppingFields()}
+        <button class="btn btn-primary" type="submit" ${state.photo && !state.photo.rgb ? 'disabled' : ''}>Confirm and search</button>
+      </form>
+    </div>
+    <aside class="panel"><div class="panel-head"><h3>${state.photo ? 'Scanned area' : 'Detected pieces'}</h3></div>${photoStage()}${state.photo ? `<p class="scan-color" id="scanColor">${scanPreview()}</p><p class="hint" id="scanHelp">Drag the box to move it or drag its lower-right corner to resize. You can also focus either control and use the arrow keys.</p>
+      ${window.__VISION ? '<button class="btn" type="button" data-act="analyzeGarment">Analyze garment</button><p class="hint">Sends the selected crop to Amazon Bedrock.</p><p id="visionStatus" class="hint" role="status"></p>' : ''}` : ''}</aside>
+  </section>`;
+}
+
 function wsSkeleton() {
   return `<section class="ws">
     <section class="col col-center">
       <div id="itemPicker"></div>
       <div class="result-tools">
-        <details class="disclosure"><summary>Filters</summary><div id="prefPanel"></div></details>
+        <details class="disclosure" id="filters"><summary>Filters</summary><div id="prefPanel"></div></details>
         <details class="disclosure" id="assistant"><summary>Ask Spotted</summary>
           <div class="chat">
             <div class="chat-head"><span class="avatar">${ic('sparkle', 14)}</span>Demo assistant</div>
@@ -586,6 +709,11 @@ function renderPhoto() {
   const it = ITEMS[state.item];
   const detailsOpen = $('#photoDetails')?.open;
   $('#itemPicker').innerHTML = `<h2>Find a piece</h2><div class="item-list" aria-label="Clothing pieces">${Object.entries(ITEMS).map(([k, v]) => `<button class="item-chip ${k === state.item ? 'on' : ''}" aria-pressed="${k === state.item}" data-act="pickItem" data-arg="${k}">${v.label}</button>`).join('')}</div>`;
+  if (state.photo) {
+    el.innerHTML = `<div class="panel"><div class="panel-head"><h3>Your photo</h3></div>
+      ${photoStage()}<p class="scan-color">${photoSwatch()} Scanned color</p></div>`;
+    return;
+  }
   el.innerHTML = `
     <div class="panel">
       <div class="panel-head"><h3>Your photo</h3><span class="pill pill-good">${ic('shield', 12)} 2 faces blurred</span></div>
@@ -623,19 +751,23 @@ function attrRow(a) {
 function renderCenter() {
   const el = $('#colCenter'); if (!el) return;
   const it = ITEMS[state.item], R = ranked(state.item);
-  const tabs = [['same', 'Same item'], ['similar', 'Similar'], ['outfits', 'Outfit ideas']];
+  const activePrefs = prefSummary();
+  const tabs = state.photo ? [['similar', 'Sample matches']] : [['same', 'Same item'], ['similar', 'Similar'], ['outfits', 'Outfit ideas']];
   el.innerHTML = `
     <div class="center-head">
-      <h2>${state.tab === 'outfits' ? 'Style the cardigan' : esc(it.name)}</h2>
+      <h2>${state.tab === 'outfits' ? 'Style the cardigan' : esc(state.photo ? it.label : it.name)}</h2>
     </div>
+    ${state.tab !== 'outfits' ? `<p class="muted small">${R.all.length} catalog ${R.all.length === 1 ? 'item fits' : 'items fit'} your filters${activePrefs.length ? ` · ${esc(activePrefs.join(' · '))}` : ''}</p>` : ''}
     ${state.rerank && state.tab !== 'outfits' ? `
       ${note('rerank')}
-      <div class="rerank">${ic('refresh', 15)}<span>Re-ranked after <b>${esc(state.rerank.text)}</b>.${state.rerank.moved ? ` ${state.rerank.moved} moved.` : ''}${state.rerank.removed ? ` ${state.rerank.removed} hidden.` : ''}${prefSummary().length ? ` Now optimizing for: ${esc(prefSummary().join(', '))}.` : ''}</span><span class="spacer"></span><button class="link" data-act="whyRerank">Explain</button><button class="icon-btn" data-act="dismissRerank" title="Dismiss">${ic('x', 14)}</button></div>` : ''}
+      <div class="rerank">${ic('refresh', 15)}<span>Re-ranked after <b>${esc(state.rerank.text)}</b>.${state.rerank.moved ? ` ${state.rerank.moved} moved.` : ''}${state.rerank.removed ? ` ${state.rerank.removed} hidden.` : ''}</span><span class="spacer"></span><button class="link" data-act="whyRerank">Explain</button><button class="icon-btn" data-act="dismissRerank" title="Dismiss">${ic('x', 14)}</button></div>` : ''}
     <div class="tabs-row">
       <div class="tabs">${tabs.map(([k, l]) => `<button class="tab ${state.tab === k ? 'on' : ''}" aria-pressed="${state.tab === k}" data-act="tab" data-arg="${k}">${l}</button>`).join('')}</div>
       ${state.tab === 'similar' ? `<label class="sort">Sort by <select data-sort>${[['best', 'Best for you'], ['look', 'Closest look'], ['price', 'Lowest price'], ['sustain', 'Most sustainable']].map(([v, l]) => `<option value="${v}" ${state.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>` : ''}
     </div>
-    <div id="tabBody">${state.tab === 'same' ? viewSame(R) : state.tab === 'similar' ? viewSimilar(R) : viewOutfits()}</div>`;
+    <div id="tabBody">${state.tab !== 'outfits' && !R.all.length
+      ? '<div class="panel"><h3>No items fit your filters</h3><p>Adjust your preferences to search a wider selection for this piece.</p><button class="link" data-act="openFilters">Edit filters</button></div>'
+      : state.tab === 'same' ? viewSame(R) : state.tab === 'similar' ? viewSimilar(R) : viewOutfits()}</div>`;
 }
 
 function viewSame(R) {
@@ -646,7 +778,7 @@ function viewSame(R) {
       ? `It's a plain ${it.label.toLowerCase()} with no visible logo. Hundreds of brands sell nearly identical ones, so any "exact match" would be a guess.`
       : state.item === 'loafers'
         ? `The shoes are small in your photo and seen at an angle. My best guess only matches at ${R.visible[0] ? R.visible[0].m.pct : 0}%, which isn't enough to call it the same pair.`
-        : `With the details as they are now, nothing matches closely enough for me to call it the same item.`;
+        : `No item within your filters matches closely enough to call it the same item.`;
     html += `${note('empty')}<div class="empty">
       ${crop(it.box)}
       <div>
@@ -671,10 +803,9 @@ function viewSame(R) {
 }
 
 function exactCard(x) {
-  const { p, m, e } = x; const P = state.prefs;
+  const { p, m, e } = x;
   const matched = m.rows.filter(r => r.status !== 'diff');
   const diffs = m.rows.filter(r => r.status === 'diff');
-  const over = P.budget != null && p.price > P.budget;
   return `<article class="exact">
     <div class="exact-img"><img src="${IMG(p.id)}" alt="${esc(p.title)}"><span class="badge-exact">${ic('check', 12)} Likely the same item</span>
       <button class="heart ${state.saved.includes(p.id) ? 'on' : ''}" data-act="save" data-arg="${p.id}" title="Save">${ic('heart', 16)}</button></div>
@@ -696,7 +827,6 @@ function exactCard(x) {
         </ul></div>
       </div>
       </details>
-      ${over ? `<div class="over-note">${ic('alert', 15)}<span>This is ${money(Math.round(p.price - P.budget))} over your $${P.budget} budget. I kept it here in case it's worth it.</span><span class="spacer"></span><button class="btn btn-sm" data-act="tab" data-arg="similar">Options under $${P.budget}</button></div>` : ''}
       <div class="card-actions">
         <button class="btn btn-sm" data-act="compare" data-arg="${p.id}">${ic('compare', 14)} Compare side by side</button>
         <button class="btn btn-sm btn-primary" data-act="store" data-arg="${p.id}">View at store ${ic('external', 13)}</button>
@@ -711,7 +841,7 @@ function exactCard(x) {
 
 function viewSimilar(R) {
   if (!R.similar.length && !R.hiddenAll.length) return `<div class="hidden-note">No similar items for this piece yet.</div>`;
-  let html = note('match') + note('verify');
+  let html = state.photo ? '<p class="hint">Ranked by confirmed garment details or scanned color, plus your shopping preferences. Listings are fictional.</p>' : note('match') + note('verify');
   html += `<div class="grid">${R.similar.map(card).join('')}</div>`;
   if (R.hiddenAll.length) {
     const reasons = [...new Set(R.hiddenAll.map(hideReason))];
@@ -732,17 +862,17 @@ function card(x) {
     <div class="card-body">
       <div class="row-between"><span class="brand">${esc(p.brand)}</span><span class="price">${money(p.price)}</span></div>
       <h4>${esc(p.title)}</h4>
-      <div class="store">${esc(p.store)} · checked ${p.checked}</div>
-      <div class="match">${dotsHtml(m.rows)}<b>${matchLabel(m.pct)}</b><span class="muted">${m.nMatch}/${m.n} details</span></div>
+      <div class="store">${state.photo ? 'Sample listing' : `${esc(p.store)} · checked ${p.checked}`}</div>
+      <div class="match">${m.color ? `<b>${m.pct}% color similarity</b>` : `${dotsHtml(m.rows)}<b>${state.photo ? 'Detail match' : matchLabel(m.pct)}</b><span class="muted">${m.nMatch}/${m.n} details</span>`}</div>
       ${e.chips.length ? `<div class="pchips">${e.chips.map(([t, l]) => `<span class="pc pc-${t}">${esc(l)}</span>`).join('')}</div>` : ''}
       ${hidden ? `<div class="hidden-why">Hidden: ${esc(hideReason(x))}${state.hidden.includes(p.id) ? ` · <button class="link" data-act="unhide" data-arg="${p.id}">bring back</button>` : ''}</div>` : ''}
-      <div class="verify"><b>Before you buy:</b> ${esc(p.verify)}</div>
+      <div class="verify"><b>Before you buy:</b> ${state.photo ? 'Check the garment details and color in the actual listing.' : esc(p.verify)}</div>
       <button class="why-toggle" data-act="toggleWhy" data-arg="${p.id}">${exp ? 'Hide details' : 'Why this match?'}</button>
       ${exp ? `<div class="why">
-        <ul class="why-rows">${m.rows.map(r => `<li class="st-${r.status}">${statusIcon(r.status)}<span><b>${r.a.label}:</b> ${esc(LABELS[r.pv])}${r.status !== 'match' ? ` <span class="muted">(yours: ${esc(LABELS[r.target])})</span>` : ''}</span></li>`).join('')}
+        <ul class="why-rows">${m.color ? `<li>Catalog color: ${esc(LABELS[m.color])}</li>` : ''}${m.rows.map(r => `<li class="st-${r.status}">${statusIcon(r.status)}<span><b>${r.a.label}:</b> ${esc(LABELS[r.pv])}${r.status !== 'match' ? ` <span class="muted">(yours: ${esc(LABELS[r.target])})</span>` : ''}</span></li>`).join('')}
           <li class="st-unknown">${statusIcon('unknown')}<span><b>Material:</b> ${esc(p.material)} <span class="muted">(can't compare from a photo)</span></span></li></ul>
         <div class="sus sus-${p.sustain.level}">${ic('leaf', 13)}<span>${esc(p.sustain.note)}</span></div>
-        <div class="muted small" style="margin-top:6px">${m.pct}% visual match${x.e.adj ? `, ${x.e.adj > 0 ? '+' : ''}${Math.round(x.e.adj)} from your preferences` : ''}.</div>
+        <div class="muted small" style="margin-top:6px">${m.pct}% ${m.color ? 'color similarity' : state.photo ? 'detail similarity' : 'visual match'}${x.e.adj ? `, ${x.e.adj > 0 ? '+' : ''}${Math.round(x.e.adj)} from your preferences` : ''}.</div>
       </div>` : ''}
       <div class="card-actions">
         <button class="btn btn-sm" data-act="compare" data-arg="${p.id}">${ic('compare', 14)} Compare</button>
@@ -796,11 +926,9 @@ function renderPrefs() {
   const el = $('#prefPanel'); if (!el) return;
   const P = state.prefs, M = state.meta;
   const tag = k => M[k] === 'inferred'
-    ? `<span class="src src-inf" title="I inferred this from your feedback">inferred</span><button class="mini good" data-act="keepPref" data-arg="${k}">Keep</button><button class="mini" data-act="dropPref" data-arg="${k}">Remove</button>`
+    ? `<span class="src src-inf" title="I inferred this from your feedback">inferred</span><button type="button" class="mini good" data-act="keepPref" data-arg="${k}">Keep</button><button type="button" class="mini" data-act="dropPref" data-arg="${k}">Remove</button>`
     : M[k] === 'said' ? '<span class="src">you set</span>' : '';
   const sel = (k, opts, val) => `<select data-pref="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(val ?? '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
-  const budgetOpts = [['', 'No limit'], ['30', 'Up to $30'], ['50', 'Up to $50'], ['60', 'Up to $60'], ['75', 'Up to $75'], ['100', 'Up to $100']];
-  if (P.budget != null && !budgetOpts.some(o => o[0] === String(P.budget))) budgetOpts.push([String(P.budget), `Up to $${P.budget}`]);
   const cls = k => M[k] === 'inferred' ? 'inf' : M[k] ? 'set' : '';
   const extras = [];
   if (P.length === 'longer') extras.push(['length', 'Longer length']);
@@ -811,9 +939,11 @@ function renderPrefs() {
   el.innerHTML = `<div class="panel">
     <div class="panel-head"><h3>What I'm optimizing for</h3>${Object.keys(M).length ? '<button class="link small" data-act="resetPrefs">Reset</button>' : '<span class="muted small">Nothing set yet</span>'}</div>
     ${note('prefs')}
+    <form class="shopping-form" data-shopping>
+      ${shoppingFields(tag)}
+      <button class="btn btn-sm btn-primary" type="submit">Apply filters</button>
+    </form>
     <div class="pref-grid">
-      <div class="pref ${cls('budget')}"><span class="pref-l">Budget per item ${tag('budget')}</span>${sel('budget', budgetOpts, P.budget)}</div>
-      <div class="pref ${cls('style')}"><span class="pref-l">Shopping style ${tag('style')}</span>${sel('style', [['', 'No preference'], ['secondhand', 'Secondhand first'], ['sustainable', 'Sustainable first']], P.style)}</div>
       <div class="pref ${cls('size')}"><span class="pref-l">Size ${tag('size')}</span>${sel('size', [['', 'Not set'], ['XS', 'XS'], ['S', 'S'], ['M', 'M'], ['L', 'L'], ['XL', 'XL']], P.size)}</div>
       <div class="pref ${cls('fast')}"><span class="pref-l">Fast fashion ${tag('fast')}</span>${sel('fast', [['', 'Show normally'], ['lower', 'Rank lower'], ['hide', 'Hide it']], P.fast)}</div>
     </div>
@@ -836,13 +966,13 @@ function renderChat() {
 function renderQuick() {
   const el = $('#quick'); if (!el) return;
   const P = state.prefs, q = [];
-  if (P.budget == null) q.push('Under $50, please');
+  if (P.budget == null && (P.minPrice ?? 0) <= 50) q.push('Under $50, please');
   if (!P.style) q.push('Secondhand first');
   if (!P.size) q.push("I'm a size S");
   if (P.length !== 'longer' && ['cardigan', 'skirt'].includes(state.item)) q.push('Something longer?');
-  q.push(state.item === 'loafers' || state.item === 'tote' ? 'Why no exact match?' : 'Why is #1 first?');
+  q.push(!state.photo && (state.item === 'loafers' || state.item === 'tote') ? 'Why no exact match?' : 'Why is #1 first?');
   q.push('How much should I trust this?');
-  if (state.tab !== 'outfits') q.push('Style it for me');
+  if (!state.photo && state.tab !== 'outfits') q.push('Style it for me');
   el.innerHTML = q.slice(0, 4).map(s => `<button class="qr" data-act="quick" data-arg="${esc(s)}">${esc(s)}</button>`).join('');
 }
 
@@ -850,7 +980,16 @@ function renderModal() {
   const root = $('#modalRoot'); const md = state.modal;
   if (!md) { root.innerHTML = ''; return; }
   let inner = '';
-  if (md.type === 'compare') {
+  if (md.type === 'compare' && state.photo) {
+    const p = byId(md.id), m = matchInfo(p);
+    inner = `<div class="modal-head"><h3>Compare side by side</h3><button class="icon-btn" aria-label="Close" data-act="closeModal">${ic('x')}</button></div>
+      <div class="cmp">
+        <figure>${photoStage()}<figcaption>Your photo · highlighted scan area</figcaption></figure>
+        <figure><div class="crop-wrap"><img src="${IMG(p.id)}" alt="${esc(p.title)}"></div><figcaption>${esc(p.title)} · sample listing</figcaption></figure>
+      </div>
+      ${m.color ? `<p class="scan-color">${photoSwatch()} Scanned color · ${m.pct}% similarity to ${esc(LABELS[m.color])}</p>`
+        : `<ul class="why-rows">${m.rows.map(({a, target, pv, status}) => `<li>${statusIcon(status)} ${a.label}: ${esc(LABELS[target])} in your photo, ${esc(LABELS[pv])} in the listing</li>`).join('')}</ul>`}`;
+  } else if (md.type === 'compare') {
     const p = byId(md.id), m = matchInfo(p), it = ITEMS[p.item];
     const unknownAttrs = it.attrs.filter(a => !a.w);
     inner = `<div class="modal-head"><h3>Compare side by side</h3><button class="icon-btn" data-act="closeModal">${ic('x')}</button></div>
@@ -868,10 +1007,7 @@ function renderModal() {
     const items = state.saved.map(byId);
     inner = `<div class="modal-head"><h3>Saved (${items.length})</h3><button class="icon-btn" data-act="closeModal">${ic('x')}</button></div>
       ${items.length ? `<div class="saved-list">${items.map(p => `<div class="saved-row"><img src="${IMG(p.id)}" alt=""><div><span class="brand">${esc(p.brand)}</span><div><b>${esc(p.title)}</b></div><div class="muted small">${money(p.price)} · ${esc(p.store)}</div></div><button class="btn btn-sm" data-act="store" data-arg="${p.id}">Store ${ic('external', 13)}</button><button class="icon-btn" data-act="save" data-arg="${p.id}" title="Remove">${ic('x', 14)}</button></div>`).join('')}</div>` : '<p class="muted">Nothing saved yet. Tap the heart on any result.</p>'}`;
-  } else if (md.type === 'upload') {
-    inner = `<div class="modal-head"><h3>Prototype note</h3><button class="icon-btn" data-act="closeModal">${ic('x')}</button></div>
-      <div class="upload-prev"><img src="${md.url}" alt="Your upload"><div><p><b>${esc(md.name)}</b></p><p class="muted" style="margin-top:6px">Live image analysis isn't connected in this prototype yet. To show the full experience, I'll run the scripted demo photo instead.</p><p class="muted small" style="margin-top:8px">In the full version, this photo would go to a vision model (Gemini) for detection and to Google Lens for product matches.</p></div></div>
-      <div class="modal-actions"><button class="btn" data-act="closeModal">Cancel</button><button class="btn btn-primary" data-act="useSample">Run the demo ${ic('arrow', 14)}</button></div>`;
+
   }
   root.innerHTML = `<div class="modal-bg" data-act="closeModal"><div class="modal" data-act="noop">${inner}</div></div>`;
 }
@@ -882,6 +1018,7 @@ function render() {
   const app = $('#app');
   if (state.view === 'home') { app.innerHTML = viewHome(); bindDrop(); }
   else if (state.view === 'analyzing') { app.innerHTML = viewAnalyzing(); updateAnalyzing(); }
+  else if (state.view === 'setup') { app.innerHTML = viewSetup(); if (state.photo) bindScanRegion(); }
   else { app.innerHTML = wsSkeleton(); bindChat(); renderAll(); }
   renderModal();
 }
@@ -891,12 +1028,161 @@ function renderAll() {
 }
 function bindDrop() {
   const d = $('#drop'), f = $('#file');
-  f.addEventListener('change', () => { if (f.files[0]) onUpload(f.files[0]); });
+  f.addEventListener('change', () => { if (f.files[0]) onUpload(f.files[0]); f.value = ''; });
   ['dragover', 'dragenter'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); d.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); d.classList.remove('over'); }));
   d.addEventListener('drop', e => { const file = e.dataTransfer.files[0]; if (file) onUpload(file); });
 }
-function onUpload(file) { state.modal = { type: 'upload', name: file.name, url: URL.createObjectURL(file) }; renderModal(); }
+let uploadAttempt = 0;
+function onUpload(file) {
+  return loadPhoto(URL.createObjectURL(file));
+}
+
+function releasePhoto(url) {
+  if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
+}
+
+async function loadPhoto(url, category) {
+  const attempt = ++uploadAttempt;
+  const status = $('#uploadStatus');
+  status.textContent = 'Scanning your photo…';
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    if (attempt !== uploadAttempt || state.view !== 'home') return;
+    const region = { ...SCAN_CROP };
+    const rgb = scanColor(image, region);
+    state = freshState();
+    state.photo = { url, image, region, rgb };
+    if (category) state.item = category;
+    state.tab = 'similar';
+    enterSetup();
+  } catch {
+    if (attempt === uploadAttempt && state.view === 'home') {
+      status.textContent = 'Could not scan this image. Try a JPG or PNG.';
+    }
+  } finally {
+    if (state.photo?.url !== url) releasePhoto(url);
+  }
+}
+function scanPreview() {
+  return state.photo.rgb ? `${photoSwatch()} Scanned color` : 'Move the box over a visible area to scan.';
+}
+
+function bindScanRegion() {
+  const stage = $('.scan-photo');
+  const box = $('.scan-region', stage);
+  const photo = state.photo;
+  const analyze = $('[data-act="analyzeGarment"]');
+  if (analyze) analyze.disabled = !photo.rgb;
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+  function adjust(start, dx, dy, resize) {
+    const region = resize
+      ? { ...start, w: clamp(start.w + dx, MIN_SCAN_SIZE, 100 - start.l), h: clamp(start.h + dy, MIN_SCAN_SIZE, 100 - start.t) }
+      : { ...start, l: clamp(start.l + dx, 0, 100 - start.w), t: clamp(start.t + dy, 0, 100 - start.h) };
+    photo.rgb = scanColor(photo.image, region);
+    photo.region = region;
+    if (photo.analysis || photo.analyzing) {
+      photo.analysis = null;
+      photo.analyzing = false;
+      $('#visionReview').innerHTML = '';
+      $('#visionStatus').textContent = 'The scan area changed. Analyze the new crop to update its details.';
+    }
+    if (analyze) analyze.disabled = !photo.rgb;
+    box.style.cssText = pos(region);
+    $('#scanColor').innerHTML = scanPreview();
+    $('[data-shopping] button[type="submit"]').disabled = !photo.rgb;
+  }
+
+  let drag;
+  box.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || drag || !e.target.matches('button')) return;
+    const { width, height } = stage.getBoundingClientRect();
+    drag = {
+      id: e.pointerId, x: e.clientX, y: e.clientY, width, height,
+      start: photo.region, resize: e.target.classList.contains('scan-resize'),
+    };
+    box.setPointerCapture(e.pointerId);
+  });
+  box.addEventListener('pointermove', e => {
+    if (drag?.id !== e.pointerId) return;
+    adjust(drag.start, (e.clientX - drag.x) / drag.width * 100, (e.clientY - drag.y) / drag.height * 100, drag.resize);
+  });
+  box.addEventListener('lostpointercapture', () => { drag = null; });
+  box.addEventListener('keydown', e => {
+    const delta = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (!delta || drag) return;
+    e.preventDefault();
+    adjust(photo.region, ...delta, e.target.classList.contains('scan-resize'));
+  });
+}
+
+function visionFields(category) {
+  return ITEMS[category].attrs.flatMap(attribute => {
+    const values = [...new Set(PRODUCTS.filter(p => p.item === category).map(p => p.attrs[attribute.key]).filter(Boolean))];
+    if (!attribute.w || attribute.key === 'tmat' || !values.length) return [];
+    return [{ ...attribute, values: ['unknown', ...new Set([...values, ...attribute.options])] }];
+  });
+}
+
+function renderVisionReview(category) {
+  const analysis = state.photo?.analysis;
+  if (!analysis) return;
+  const values = analysis.category === category ? analysis.attributes : {};
+  $('#visionReview').innerHTML = `<fieldset class="vision-fields">
+    <legend>Review garment details</legend>
+    ${visionFields(category).map(field => `<label class="pref"><span class="pref-l">${field.label}</span>
+      <select name="vision-${field.key}">${options(field.values.map(value => [value, LABELS[value]]), values[field.key] || 'unknown')}</select></label>`).join('')}
+  </fieldset>`;
+}
+
+async function analyzeGarment() {
+  const photo = state.photo;
+  if (!window.__VISION || !photo?.rgb || photo.analyzing) return;
+  const region = photo.region;
+  const button = $('[data-act="analyzeGarment"]');
+  const status = $('#visionStatus');
+  const item = $('[data-shopping] select[name="item"]');
+  const isCurrent = () => state.view === 'setup' && state.photo === photo && photo.region === region;
+  photo.analyzing = true;
+  button.disabled = true;
+  status.textContent = 'Analyzing the selected crop…';
+  try {
+    const { image } = photo;
+    const x = region.l * image.naturalWidth / 100;
+    const y = region.t * image.naturalHeight / 100;
+    const width = region.w * image.naturalWidth / 100;
+    const height = region.h * image.naturalHeight / 100;
+    const scale = Math.min(1, 1024 / Math.max(width, height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    canvas.getContext('2d').drawImage(image, x, y, width, height, 0, 0, canvas.width, canvas.height);
+    const jpeg = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .85));
+    if (!isCurrent()) return;
+    if (!jpeg) throw new Error('Could not create a crop.');
+    const response = await fetch('/api/scan', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: jpeg });
+    if (!response.ok) throw new Error('Analysis request failed.');
+    const result = await response.json();
+    if (!isCurrent()) return;
+    const recognized = Object.hasOwn(ITEMS, result.category);
+    photo.analysis = result;
+    if (recognized) item.value = result.category;
+    $('#detectedDetails').textContent = detectedDetails(item.value);
+    renderVisionReview(item.value);
+    status.textContent = recognized ? 'Review the detected garment and details before searching.' : 'Choose a category and fill in any details you can see.';
+  } catch {
+    if (isCurrent()) status.textContent = 'Could not analyze this crop. Try again or search by color.';
+  } finally {
+    if (isCurrent()) {
+      photo.analyzing = false;
+      button.disabled = !photo.rgb;
+    }
+  }
+}
+
 function bindChat() {
   $('#assistant').addEventListener('toggle', () => {
     const log = $('#chatLog');
@@ -907,32 +1193,40 @@ function bindChat() {
   });
 }
 function startAnalysis() {
+  uploadAttempt++;
   clearTimeout(timer);
   state = freshState(); state.view = 'analyzing'; state.step = 0; render();
   const tick = () => {
     state.step++; updateAnalyzing();
-    timer = setTimeout(state.step < STEPS.length ? tick : enterWorkspace, state.step < STEPS.length ? 720 : 650);
+    timer = setTimeout(state.step < STEPS.length ? tick : enterSetup, state.step < STEPS.length ? 720 : 650);
   };
   timer = setTimeout(tick, 650);
 }
-function enterWorkspace() { clearTimeout(timer); state.view = 'workspace'; state.step = STEPS.length; render(); greet(); }
+function enterSetup() { clearTimeout(timer); state.view = 'setup'; render(); }
 function pickItem(k, silent) {
   if (!ITEMS[k]) return;
   const changed = state.item !== k;
   state.item = k; state.popover = null; state.editing = null; state.moves = {}; state.rerank = null; state.showHidden = false;
-  if (state.tab === 'outfits' || changed) state.tab = 'same';
+  if (!state.photo && (state.tab === 'outfits' || changed)) state.tab = 'same';
   renderAll();
   if (!silent) onItemVisit(k); else state.visited[k] = true;
 }
 
 /* ---------- events ---------- */
 const ACTIONS = {
-  useSample: () => { state.modal = null; renderModal(); startAnalysis(); },
-  skip: enterWorkspace,
-  newPhoto: () => { clearTimeout(timer); state = freshState(); render(); },
+  analyzeGarment,
+  useDatasetPhoto: key => { if (DATASET_PHOTOS.includes(key)) return loadPhoto(IMG(key), 'skirt'); },
+  useSample: () => { ACTIONS.closeModal(); startAnalysis(); },
+  skip: enterSetup,
+  openFilters: () => {
+    const filters = $('#filters');
+    filters.open = true;
+    filters.querySelector('summary').focus();
+  },
+  newPhoto: () => { clearTimeout(timer); releasePhoto(state.photo?.url); state = freshState(); render(); },
   toggleNotes: () => { notesOn = !notesOn; document.body.classList.toggle('notes-on', notesOn); renderTop(); },
   openSaved: () => { state.modal = { type: 'saved' }; renderModal(); },
-  closeModal: () => { if (state.modal && state.modal.url) URL.revokeObjectURL(state.modal.url); state.modal = null; renderModal(); },
+  closeModal: () => { state.modal = null; renderModal(); },
   noop: () => {},
   pickItem: (k, el) => {
     pickItem(k);
@@ -956,7 +1250,7 @@ const ACTIONS = {
     if (lost.length) msg += ` So <b>${esc(lost[0].title)}</b> is no longer a confident exact match. ${topNow && topNow.p.id === lost[0].id ? "It's still the closest option overall, so it's now at the top of Similar." : 'I moved it to Similar.'}`;
     if (gained.length) msg += ` <b>${esc(gained[0].title)}</b> now looks like the same item.`;
     if (!lost.length && !gained.length && topNow) msg += ` Top similar pick is now <b>${esc(topNow.p.title)}</b>.`;
-    const better = PRODUCTS.filter(p => p.item === item && p.attrs[key] === val && !exactNow.includes(p.id) && (!topNow || p.id !== topNow.p.id));
+    const better = catalogFor(item).filter(p => p.attrs[key] === val && !exactNow.includes(p.id) && (!topNow || p.id !== topNow.p.id));
     if (better.length) msg += ` ${esc(better[0].brand)}'s ${esc(better[0].title.toLowerCase())} has that ${a.label.toLowerCase()}, but differs in other details.`;
     aiSay(msg);
   },
@@ -1015,19 +1309,71 @@ document.addEventListener('click', e => {
   if (el.tagName === 'BUTTON' || el.dataset.act !== 'noop') e.preventDefault();
   fn(el.dataset.arg, el, e);
 });
+document.addEventListener('submit', e => {
+  const form = e.target;
+  if (!form.matches('[data-shopping]')) return;
+  e.preventDefault();
+  const data = new FormData(form);
+  const price = key => data.get(key) === '' ? null : Number(data.get(key));
+  const brands = key => [...new Map(data.get(key).split(',').map(name => name.trim())
+    .filter(Boolean).map(name => [name.toLowerCase(), name])).values()];
+  const next = {
+    minPrice: price('minPrice'), budget: price('budget'),
+    preferredBrands: brands('preferredBrands'), excludedBrands: brands('excludedBrands'),
+    secondhand: data.get('secondhand') || null, style: data.get('style') || null,
+  };
+  if (next.minPrice != null && next.budget != null && next.minPrice > next.budget) {
+    const budget = form.elements.budget;
+    budget.setCustomValidity('Enter a maximum price at least as high as the minimum.');
+    budget.reportValidity();
+    return;
+  }
+  const apply = () => {
+    for (const [key, value] of Object.entries(next)) {
+      if (JSON.stringify(state.prefs[key]) === JSON.stringify(value)) continue;
+      state.prefs[key] = value;
+      if (Array.isArray(value) ? value.length : value != null) state.meta[key] = 'said';
+      else delete state.meta[key];
+    }
+  };
+  if (state.view === 'setup') {
+    if (state.photo && !state.photo.rgb) return;
+    apply();
+    state.item = data.get('item');
+    if (state.photo?.analysis) {
+      const attributes = Object.fromEntries(visionFields(state.item).map(field => {
+        const value = data.get(`vision-${field.key}`);
+        return [field.key, field.values.includes(value) ? value : 'unknown'];
+      }));
+      state.photo.confirmed = { category: state.item, attributes };
+    }
+    state.view = 'workspace';
+    render();
+    onItemVisit(state.item);
+  } else if (Object.keys(next).some(key => JSON.stringify(next[key]) !== JSON.stringify(state.prefs[key]))) {
+    applyChange(apply, 'updated shopping filters');
+    ACTIONS.openFilters();
+  }
+});
+document.addEventListener('input', e => {
+  const form = e.target.form;
+  if (form?.matches('[data-shopping]')) form.elements.budget.setCustomValidity('');
+});
 document.addEventListener('change', e => {
   const s = e.target;
+  if (state.view === 'setup' && s.matches('[name="item"]')) {
+    $('#detectedDetails').textContent = detectedDetails(s.value);
+    renderVisionReview(s.value);
+  }
   if (s.matches('[data-sort]')) { state.sort = s.value; state.moves = {}; state.rerank = null; renderCenter(); return; }
   if (s.matches('[data-pref]')) {
     const k = s.dataset.pref, v = s.value;
     const text = {
-      budget: v ? `budget up to $${v}` : 'no budget limit',
-      style: { secondhand: 'secondhand first', sustainable: 'sustainable brands first', '': 'no shopping preference' }[v],
       fast: { lower: 'rank fast fashion lower', hide: 'hide ultra-fast fashion', '': 'show fast fashion normally' }[v],
       size: v ? `size ${v}` : 'size not set',
     }[k];
     applyChange(() => {
-      state.prefs[k] = v === '' ? null : (k === 'budget' ? +v : v);
+      state.prefs[k] = v || null;
       if (v === '') delete state.meta[k]; else state.meta[k] = 'said';
     }, text, 'said');
     aiSay(effectSummary(), null, 600);
