@@ -409,3 +409,9 @@ body.notes-on .dnote b{display:block;font-size:10.5px;text-transform:uppercase;l
 .dataset-photos button{display:grid;gap:4px;padding:6px;border:1px solid var(--line);border-radius:10px;background:#fff;text-align:left;font-size:13px}
 .dataset-photos button:hover{border-color:var(--accent)}
 .dataset-photos img{width:100%;height:64px;object-fit:contain;background:var(--soft);border-radius:5px}
+
+.reference-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.reference-grid article>img{width:100%;height:160px;object-fit:contain;background:var(--soft)}
+.reference-grid h3{font-size:15px;margin:0 0 6px}
+
+@media (min-width: 781px){.reference-workspace{grid-template-columns:minmax(0,340px) minmax(0,1fr)}}

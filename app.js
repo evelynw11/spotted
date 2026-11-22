@@ -663,6 +663,21 @@ function detectedDetails(key) {
 }
 
 function viewSetup() {
+  if (state.photo && window.__REFERENCE_SEARCH) {
+    return `<section class="ws reference-workspace">
+      <div class="panel"><h2>Find visually similar clothes</h2>
+        <p class="hint" id="scanHelp">Move the box over the whole garment. Drag the lower-right corner to resize, or focus either control and use the arrow keys.</p>
+        ${photoStage()}
+        <p class="scan-color" id="scanColor">${scanPreview()}</p>
+        <button class="btn btn-primary" type="button" data-act="analyzeGarment">Analyze garment</button>
+        <p class="hint">Sends the selected crop to Amazon Bedrock.</p>
+        <p class="hint" id="visionStatus" role="status"></p>
+      </div>
+      <section class="panel" id="visionReview" aria-label="Reference matches">
+        <h2>Reference matches</h2><p class="muted">Analyze a garment to search the Clothing Dataset.</p>
+      </section>
+    </section>`;
+  }
   return `<section class="ws">
     <div class="panel">
       <h2>Confirm the piece and set your preferences</h2>
@@ -1051,7 +1066,7 @@ async function loadPhoto(url, category) {
     image.src = url;
     await image.decode();
     if (attempt !== uploadAttempt || state.view !== 'home') return;
-    const region = { ...SCAN_CROP };
+    const region = window.__REFERENCE_SEARCH ? { l: 10, t: 10, w: 80, h: 80 } : { ...SCAN_CROP };
     const rgb = scanColor(image, region);
     state = freshState();
     state.photo = { url, image, region, rgb };
@@ -1087,13 +1102,15 @@ function bindScanRegion() {
     if (photo.analysis || photo.analyzing) {
       photo.analysis = null;
       photo.analyzing = false;
-      $('#visionReview').innerHTML = '';
+      $('#visionReview').innerHTML = window.__REFERENCE_SEARCH
+        ? '<h2>Reference matches</h2><p class="muted">Analyze the new crop to update your matches.</p>' : '';
       $('#visionStatus').textContent = 'The scan area changed. Analyze the new crop to update its details.';
     }
     if (analyze) analyze.disabled = !photo.rgb;
     box.style.cssText = pos(region);
     $('#scanColor').innerHTML = scanPreview();
-    $('[data-shopping] button[type="submit"]').disabled = !photo.rgb;
+    const confirm = $('[data-shopping] button[type="submit"]');
+    if (confirm) confirm.disabled = !photo.rgb;
   }
 
   let drag;
@@ -1138,6 +1155,19 @@ function renderVisionReview(category) {
   </fieldset>`;
 }
 
+function renderReferenceResults({ category, details, matches }) {
+  $('#visionReview').innerHTML = `<h2>Reference matches</h2>
+    ${!['unknown', 'no garment'].includes(category) ? `<p>Detected garment: <strong>${esc(category)}</strong></p>` : ''}
+    ${details.length ? `<p class="muted">${details.map(esc).join(' · ')}</p>` : ''}
+    ${matches.length ? `<p class="hint">Dataset photos with simulated prices and conditions.</p>
+      <div class="reference-grid">${matches.map(match => `<article class="card">
+        <img src="${esc(match.image)}" alt="${esc(match.category)} reference photo" loading="lazy">
+        <div class="card-body"><h3>${esc(match.category)}</h3><strong>${money(match.price)} sample price</strong>
+          <p class="muted small">${esc(match.audience)} · ${esc(match.condition)} (sample condition)</p>
+        </div>
+      </article>`).join('')}</div>` : '<p class="muted">No close matches found.</p>'}`;
+}
+
 async function analyzeGarment() {
   const photo = state.photo;
   if (!window.__VISION || !photo?.rgb || photo.analyzing) return;
@@ -1167,6 +1197,12 @@ async function analyzeGarment() {
     if (!response.ok) throw new Error('Analysis request failed.');
     const result = await response.json();
     if (!isCurrent()) return;
+    if (window.__REFERENCE_SEARCH) {
+      photo.analysis = result;
+      renderReferenceResults(result);
+      status.textContent = result.matches.length ? `Found ${result.matches.length} close reference matches.` : 'No close matches found.';
+      return;
+    }
     const recognized = Object.hasOwn(ITEMS, result.category);
     photo.analysis = result;
     if (recognized) item.value = result.category;
@@ -1174,7 +1210,9 @@ async function analyzeGarment() {
     renderVisionReview(item.value);
     status.textContent = recognized ? 'Review the detected garment and details before searching.' : 'Choose a category and fill in any details you can see.';
   } catch {
-    if (isCurrent()) status.textContent = 'Could not analyze this crop. Try again or search by color.';
+    if (isCurrent()) status.textContent = window.__REFERENCE_SEARCH
+      ? 'Could not analyze this crop. Please try again.'
+      : 'Could not analyze this crop. Try again or search by color.';
   } finally {
     if (isCurrent()) {
       photo.analyzing = false;

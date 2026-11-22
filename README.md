@@ -32,17 +32,20 @@ Users confirm a detected piece and set optional shopping preferences before sear
 
 The scan samples pixels inside the selected box and compares the median color with catalog swatches. Lighting and anything else inside the box can affect the result. The upload flow uses your garment category and shows color-based results.
 
-## Enable Amazon Bedrock garment analysis
+## Search the reference dataset with Amazon Bedrock
 
-Install Node.js 16.9 or later and AWS CLI v2 on macOS or Linux. Configure an AWS CLI profile with permission to invoke the model in Bedrock (`bedrock:InvokeModel`). If your profile uses IAM Identity Center, sign in with `aws sso login --profile your-profile`.
+This mode uses the complete [CC0 Clothing Dataset](https://github.com/alexeygrigorev/clothing-dataset) from the publisher’s GitHub repository, the smaller image resolution version of the Kaggle dataset. Install Python 3.9+, Node.js 16.9+, AWS CLI v2, and the macOS 14+ command-line developer tools. Configure an AWS CLI profile with `bedrock:InvokeModel` access.
 
 ```bash
+python3 scripts/prepare-dataset.py
 BEDROCK_VISION=1 AWS_PROFILE=your-profile AWS_REGION=us-east-1 node server.js
 ```
 
-Open [http://127.0.0.1:4173](http://127.0.0.1:4173), upload a photo, adjust the box, and click **Analyze garment**. Review or correct the suggested category and visible details before selecting **Confirm and search**. Spotted ranks the sample catalog using confirmed details and falls back to color when no details can be compared.
+The first command downloads the photos, creates the catalog in the ignored `reference-data/` directory, and builds a local Apple Vision feature index. It can also use an existing publisher ZIP with `--zip /path/to/dataset.zip`. The setup sends no photos to AWS. Every reference includes the dataset category, audience label, and a stable simulated USD price and condition.
 
-The server uses the AWS CLI credential chain. Clicking **Analyze garment** sends the selected JPEG crop to Bedrock. The default is Amazon Nova Lite via the US inference profile. Set `BEDROCK_MODEL_ID` and `AWS_REGION` for a different supported model or region. The standalone HTML and GitHub Pages demo offer local color scanning.
+Open [http://127.0.0.1:4173](http://127.0.0.1:4173), upload a photo, fit the box around the garment, and select **Analyze garment**. Bedrock analyzes that crop for category and visible details. Spotted compares the crop with the locally indexed photos and shows up to 12 closest references that pass the cutoff. If none pass, it shows **No close matches found**. Reference cards contain simulated shopping data and have no purchase links.
+
+`REFERENCE_MAX_DISTANCE` adjusts the Apple Vision distance cutoff (default 0.68). Lower values require a closer image match. `BEDROCK_MODEL_ID` overrides the default Amazon Nova Lite US inference profile. Only **Analyze garment** sends the selected crop to AWS. The standalone HTML and GitHub Pages demo use local color scanning. If you start the server with Bedrock enabled before preparing the dataset, it offers the original sample catalog workflow.
 
 ## What the scripted walkthrough does
 
