@@ -2,6 +2,24 @@
 
 Spotted analyzes an image you upload and searches a local collection of real second-hand clothing for visually similar pieces. Each result shows the brand, size, material, colors, and suggested price band recorded by professional second-hand sorters. The AI never fills in those fields.
 
+## Quick start (no typing)
+
+1. Install these if you don't have them (one time):
+   - [Node.js](https://nodejs.org) (LTS version)
+   - [Python 3](https://www.python.org/downloads/)
+   - [AWS CLI](https://aws.amazon.com/cli/)
+2. Download Spotted: on GitHub, select **Code → Download ZIP**, then double-click the ZIP to unzip it.
+3. Double-click **Start Spotted.command** in the Spotted folder.
+   - If macOS says it can't verify the file, open **System Settings → Privacy & Security**, scroll down, and select **Open Anyway** next to "Start Spotted.command". You only need to do this once.
+4. Follow the prompts in the window that opens:
+   - **First run only:** it offers to download the clothing dataset (about 2.3 GB) and sets it up. This takes a few minutes.
+   - **AWS sign-in:** enter the name of your AWS profile (or press Return to use `spotted`). If you're not signed in, a browser window opens so you can sign in with your AWS account.
+5. Spotted opens in your browser. Keep the Terminal window open while you use it; close the window to quit.
+
+Next time, just double-click **Start Spotted.command** again. You need an AWS account with access to Amazon Bedrock in `us-east-1`. To switch AWS profiles, delete the hidden `.spotted-aws-profile` file in the Spotted folder.
+
+The sections below describe the same setup step by step, for developers.
+
 ## Requirements
 
 - macOS 14 or later with Apple Command Line Tools
@@ -60,6 +78,7 @@ Search results are items from the dataset, not current product listings, and can
 ## Project structure
 
 ```text
+Start Spotted.command   Double-click launcher
 index.html
 styles.css
 app.js

@@ -5,3 +5,4 @@ __pycache__/
 *.log
 
 /reference-data/
+.spotted-aws-profile
