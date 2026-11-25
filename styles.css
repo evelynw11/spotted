@@ -99,7 +99,7 @@ button { cursor: pointer; }
 .result-count { margin: 16px 0 10px; font-size: 13px; }
 .result-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
 .result-card { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
-.result-card img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; background: #eee8df; }
+.result-card img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: #eee8df; }
 .result-card h3 { margin: 10px 12px; font-size: 14px; font-weight: 600; }
 .empty-results { padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 footer { max-width: 640px; margin: 18px auto 0; color: var(--muted); font-size: 12px; line-height: 1.5; text-align: center; }
@@ -111,3 +111,91 @@ footer { max-width: 640px; margin: 18px auto 0; color: var(--muted); font-size: 
   .upload { min-height: 180px; }
   .result-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
+
+/* What Spotted can and cannot do (G1) */
+.capabilities {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px 24px;
+  max-width: 640px;
+  margin: 0 auto 18px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fbf8f3;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.capabilities h2 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+.capabilities ul { margin: 0; padding-left: 18px; color: var(--muted); }
+
+/* What the AI sees + correction (G9, G11) */
+.seen {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px 24px;
+  align-items: end;
+  margin-bottom: 28px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+.seen.needs-check { border-color: #e0b25c; background: #fffaf0; }
+.eyebrow { margin: 0 0 4px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.hint { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.details { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
+.details li { padding: 3px 10px; border-radius: 999px; background: #f1ebe2; color: #4a4239; font-size: 12px; }
+.correct { display: grid; gap: 6px; font-size: 13px; }
+.correct label { color: var(--muted); }
+.correct-row { display: flex; gap: 8px; }
+.correct select, .correct-row button {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  color: inherit;
+}
+.correct-row button { border-color: #24201c; background: #24201c; color: #fff; font-weight: 600; }
+.correct .text-button { justify-self: start; margin: 0; padding: 2px 0; font-size: 13px; }
+
+/* Match strength (G2) */
+.results-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+.results-head .result-count { margin: 0; }
+.quality { margin: 8px 0 14px; padding: 10px 12px; border-radius: 9px; font-size: 13px; line-height: 1.5; }
+.quality-same, .quality-close { background: #e8f2ea; color: #23512f; }
+.quality-similar { background: #f1ebe2; color: #4a4239; }
+.quality-loose, .quality-nearest { background: #fbf1dd; color: #6a4b12; }
+.card-body { padding: 10px 12px 12px; }
+.card-body h3 { margin: 6px 0 4px; font-size: 14px; font-weight: 600; }
+.result-card h3 { margin: 6px 0 4px; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.badge-same, .badge-close { background: #dcebdf; color: #23512f; }
+.badge-similar { background: #ece4d8; color: #4a4239; }
+.badge-loose { background: #f7e6c4; color: #6a4b12; }
+.badge-nearest { background: #eee8df; color: #71695f; }
+.result-card details { font-size: 12px; color: var(--muted); }
+.result-card summary { cursor: pointer; color: var(--accent); }
+.result-card details ul { margin: 6px 0 0; padding-left: 16px; line-height: 1.45; }
+
+/* Styling ideas */
+.styling { margin-top: 32px; }
+.styling h2 { margin: 0; font: 500 22px Georgia, serif; }
+.styling ul { display: grid; gap: 10px; margin: 14px 0 0; padding: 0; list-style: none; }
+.styling li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.styling li p { margin: 0; line-height: 1.5; }
+.chip { display: inline-block; margin-top: 6px; color: var(--muted); font-size: 12px; }
+
+@media (max-width: 600px) {
+  .seen { grid-template-columns: 1fr; }
+  .correct-row select { flex: 1; min-width: 0; }
+}
+
+/* Dataset listing facts */
+.item-type { margin: 0 0 6px; color: var(--muted); font-size: 12px; }
+.facts { display: grid; gap: 2px; margin: 0 0 8px; font-size: 12px; }
+.facts div { display: flex; gap: 6px; }
+.facts dt { flex: none; width: 58px; color: var(--muted); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+footer a { color: inherit; }

@@ -1,30 +1,25 @@
 # Spotted
 
-Spotted analyzes an image you upload and searches a local collection of clothing photos for visually similar garments. It does not ship with fictional product listings, brands, prices, material claims, or outfit suggestions.
+Spotted analyzes an image you upload and searches a local collection of real second-hand clothing for visually similar pieces. Each result shows the brand, size, material, colors, and suggested price band recorded by professional second-hand sorters. The AI never fills in those fields.
 
 ## Requirements
 
 - macOS 14 or later with Apple Command Line Tools
 - Python 3.11 or later
 - Node.js 16.9 or later
-- Kaggle account and official Kaggle CLI authentication
 - AWS CLI v2 configured with a profile that can invoke Amazon Bedrock
 
-## Set up the full-resolution Kaggle dataset
+## Set up the dataset
 
-The app uses the full-resolution [Kaggle Clothing Dataset](https://www.kaggle.com/datasets/agrigorev/clothing-dataset-full), released under CC0. It is about 7 GB; allow roughly 14 GB of free disk space while downloading and importing it.
+The app uses version 1 of the [Clothing Dataset for Second-Hand Fashion](https://zenodo.org/records/8386668) from Wargön Innovation AB and RISE Research Institutes of Sweden, released under CC BY 4.0. The download is about 2.3 GB; allow roughly 5 GB of free disk space while importing it.
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-kaggle auth login
-python scripts/prepare-dataset.py
+python3 scripts/prepare-dataset.py
 ```
 
-`kaggle auth login` opens Kaggle's authentication flow. Alternatively, configure a Kaggle API token outside this repository. Never commit Kaggle credentials. To use a ZIP you downloaded yourself, pass `--zip /path/to/clothing-dataset-full.zip` to the preparation script.
+The script downloads the archive from Zenodo, keeps each item's labels and front photo, resizes the photos to at most 800 pixels, rotates them upright (the dataset's flat-lays show each garment sideways with the collar on the right), writes `catalog.json`, and builds the local Apple Vision index. Each photo is also indexed turned a quarter turn each way, and a search uses the best of the three, which covers any garment that was laid out differently. Running it again replaces the existing dataset. Everything is kept in the ignored `reference-data/` directory. To use an archive you already downloaded, pass `--archive /path/to/circular_fashion_v1.tar.gz`. No Python packages are needed.
 
-The script imports the full-resolution `images/` files, creates a category-only catalog, and builds the local Apple Vision index. The dataset and generated index are kept in the ignored `reference-data/` directory. On successful indexing, old image files not in the Kaggle catalog are removed. Image matching runs locally; uploaded images are sent to Bedrock only when you search.
+Image matching runs locally; uploaded images are sent to Bedrock only when you search.
 
 ## Run Spotted
 
@@ -38,11 +33,29 @@ Open [http://127.0.0.1:4173](http://127.0.0.1:4173). Upload an image and select 
 
 If the setup is incomplete, the app explains that visual search is unavailable instead of substituting sample results.
 
-`BEDROCK_MODEL_ID` can override the default `us.amazon.nova-lite-v1:0` model. `REFERENCE_MAX_DISTANCE` changes the visual similarity cutoff (default `0.8`; higher values allow more, potentially less similar, matches; lower values require closer matches).
+`BEDROCK_MODEL_ID` can override the default `us.amazon.nova-lite-v1:0` model. `REFERENCE_MAX_DISTANCE` changes the visual similarity cutoff (default `0.65`; higher values allow more, potentially less similar, matches; lower values require closer matches). If nothing is within the cutoff, Spotted shows the four nearest items labeled **Not a close match** instead of an empty result.
+
+## How it works
+
+1. Upload a photo. Amazon Bedrock names the garment category, how confident it is, and up to four visible details.
+2. **Check what the AI sees.** If the category is wrong, pick the right one and select **Search again**. The earlier analysis is cached, so re-searching does not call Bedrock again.
+3. Browse similar second-hand pieces, most similar first, with brand, size, material, colors, and suggested price. Each one has a match-strength label (**May be the same item**, **Close match**, **Similar**, **Loose lookalike**) and a **Why this match?** explanation.
+4. Read AI styling ideas based on the visible details. These are suggestions, not product picks.
+
+## Human-AI interaction guidelines applied
+
+Spotted follows four of the [Guidelines for Human-AI Interaction](https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/) (Amershi et al., CHI 2019):
+
+| Guideline | How Spotted applies it |
+| --- | --- |
+| **G1. Make clear what the system can do** | Before upload, the page lists what Spotted can do (identify a garment, find similar second-hand pieces with their dataset details, suggest outfits) and what it cannot (find the exact item, show live prices, search the live web or link to a store). |
+| **G2. Make clear how well the system can do what it can do** | The AI reports its confidence in the category, and a low-confidence result is highlighted for the user to check. Each match carries a strength label based on visual distance, and a summary says plainly when there are no close matches. |
+| **G9. Support efficient correction** | Users can change the detected category from a dropdown and search again without re-uploading, or undo their change and return to the AI's category. |
+| **G11. Make clear why the system did what it did** | The "What the AI sees" panel shows the visible details the AI used. Each result explains why it was included: same category, or visual similarity alone for uncategorized dataset photos. |
 
 ## Data limitations
 
-Search results are reference photos and dataset categories, not current product listings. The dataset does not provide verified brands, prices, materials, condition, or sustainability information, so Spotted does not invent or display those fields. Connecting a real shopping source would be needed to provide product brands, costs, and listing details.
+Search results are items from the dataset, not current product listings, and cannot be bought through Spotted. Prices are suggested price bands from the dataset annotators; the dataset notes that its partner does not set prices in practice, and it does not state a currency. Some fields are missing for some items. Connecting a live shopping source would be needed for real prices and links to buy.
 
 ## Project structure
 
@@ -51,7 +64,6 @@ index.html
 styles.css
 app.js
 server.js
-requirements.txt
 scripts/prepare-dataset.py
 scripts/reference-search.m
 reference-data/    Generated locally; ignored by Git
@@ -59,4 +71,4 @@ reference-data/    Generated locally; ignored by Git
 
 ## Dataset attribution
 
-The local reference images are from Alexey Grigorev's [CC0 Clothing Dataset on Kaggle](https://www.kaggle.com/datasets/agrigorev/clothing-dataset-full).
+Item photos and labels are from the [Clothing Dataset for Second-Hand Fashion](https://zenodo.org/records/8386668) (version 1) by Wargön Innovation AB and RISE Research Institutes of Sweden AB, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Photos were resized for the app.

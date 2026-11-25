@@ -1,11 +1,19 @@
 #import <Foundation/Foundation.h>
 #import <Vision/Vision.h>
 
-static VNFeaturePrintObservation *featurePrint(NSURL *url, NSError **error) {
+// Dataset photos are flat-lays, often with the garment lying sideways, so each one is indexed
+// upright and turned a quarter turn each way. A search keeps the best of the three.
+static const CGImagePropertyOrientation orientations[] = {
+    kCGImagePropertyOrientationUp, kCGImagePropertyOrientationRight, kCGImagePropertyOrientationLeft,
+};
+static NSString *const orientationSuffixes[] = {@"", @"@right", @"@left"};
+static const NSUInteger orientationCount = 3;
+
+static VNFeaturePrintObservation *featurePrint(NSURL *url, CGImagePropertyOrientation orientation, NSError **error) {
     VNGenerateImageFeaturePrintRequest *request = [VNGenerateImageFeaturePrintRequest new];
     request.revision = VNGenerateImageFeaturePrintRequestRevision2;
     request.imageCropAndScaleOption = VNImageCropAndScaleOptionScaleFit;
-    VNImageRequestHandler *handler = [[VNImageRequestHandler alloc] initWithURL:url options:@{}];
+    VNImageRequestHandler *handler = [[VNImageRequestHandler alloc] initWithURL:url orientation:orientation options:@{}];
     if (![handler performRequests:@[request] error:error]) return nil;
     return request.results.firstObject;
 }
@@ -22,11 +30,13 @@ static int buildIndex(NSArray<NSDictionary *> *catalog, NSURL *root, NSURL *inde
         @autoreleasepool {
             NSString *identifier = entry[@"id"];
             NSURL *image = [root URLByAppendingPathComponent:[NSString stringWithFormat:@"images/%@.jpg", identifier]];
-            NSError *error = nil;
-            VNFeaturePrintObservation *print = featurePrint(image, &error);
-            if (print) index[identifier] = print;
-            else fprintf(stderr, "Could not index %s: %s\n", identifier.UTF8String,
-                         (error.localizedDescription ?: @"unreadable image").UTF8String);
+            for (NSUInteger turn = 0; turn < orientationCount; turn++) {
+                NSError *error = nil;
+                VNFeaturePrintObservation *print = featurePrint(image, orientations[turn], &error);
+                if (print) index[[identifier stringByAppendingString:orientationSuffixes[turn]]] = print;
+                else fprintf(stderr, "Could not index %s: %s\n", identifier.UTF8String,
+                             (error.localizedDescription ?: @"unreadable image").UTF8String);
+            }
         }
         if (++processed % 500 == 0) fprintf(stderr, "Processed %lu of %lu images\n", processed, catalog.count);
     }
@@ -34,13 +44,14 @@ static int buildIndex(NSArray<NSDictionary *> *catalog, NSURL *root, NSURL *inde
     NSError *error = nil;
     NSData *data = [NSKeyedArchiver archivedDataWithRootObject:index requiringSecureCoding:YES error:&error];
     if (!data || ![data writeToURL:indexURL options:NSDataWritingAtomic error:&error]) return fail(error);
-    printf("Indexed %lu of %lu reference photos.\n", index.count, catalog.count);
-    return index.count == catalog.count ? 0 : 2;
+    printf("Indexed %lu of %lu reference photos in %lu orientations.\n",
+           index.count / orientationCount, catalog.count, orientationCount);
+    return index.count == catalog.count * orientationCount ? 0 : 2;
 }
 
 static int search(NSArray<NSDictionary *> *catalog, NSURL *indexURL, NSURL *queryURL, NSString *category, float cutoff) {
     NSError *error = nil;
-    VNFeaturePrintObservation *query = featurePrint(queryURL, &error);
+    VNFeaturePrintObservation *query = featurePrint(queryURL, kCGImagePropertyOrientationUp, &error);
     if (!query) return fail(error);
     NSData *bytes = [NSData dataWithContentsOfURL:indexURL options:NSDataReadingMappedIfSafe error:&error];
     if (!bytes) return fail(error);
@@ -54,10 +65,14 @@ static int search(NSArray<NSDictionary *> *catalog, NSURL *indexURL, NSURL *quer
         NSString *label = entry[@"category"];
         if (![category isEqual:@"unknown"] && ![label isEqual:category] && ![uncategorized containsObject:label]) continue;
         NSString *identifier = entry[@"id"];
-        VNFeaturePrintObservation *candidate = index[identifier];
-        if (!candidate) continue;
-        float distance = 0;
-        if (![query computeDistance:&distance toFeaturePrintObservation:candidate error:&error]) return fail(error);
+        float distance = INFINITY;
+        for (NSUInteger turn = 0; turn < orientationCount; turn++) {
+            VNFeaturePrintObservation *candidate = index[[identifier stringByAppendingString:orientationSuffixes[turn]]];
+            float turned = 0;
+            if (!candidate) continue;
+            if (![query computeDistance:&turned toFeaturePrintObservation:candidate error:&error]) return fail(error);
+            if (isfinite(turned) && turned < distance) distance = turned;
+        }
         if (isfinite(distance) && distance <= cutoff) {
             [matches addObject:@{@"id": identifier, @"distance": @(distance)}];
         }
@@ -82,7 +97,7 @@ int main(int argc, const char *argv[]) {
         if (!manifest) return fail(error);
         NSArray *catalog = [NSJSONSerialization JSONObjectWithData:manifest options:0 error:&error];
         if (![catalog isKindOfClass:NSArray.class]) return fail(error);
-        NSURL *indexURL = [root URLByAppendingPathComponent:@"features-v2.archive"];
+        NSURL *indexURL = [root URLByAppendingPathComponent:@"features-v3.archive"];
         if ([action isEqual:@"index"] && argc == 3) return buildIndex(catalog, root, indexURL);
         if ([action isEqual:@"search"] && argc == 6) {
             char *end;

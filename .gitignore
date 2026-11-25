@@ -3,7 +3,5 @@ node_modules/
 .venv/
 __pycache__/
 *.log
-/kaggle.json
-/.kaggle/
 
 /reference-data/
