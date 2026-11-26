@@ -163,18 +163,9 @@ footer { max-width: 640px; margin: 18px auto 0; color: var(--muted); font-size: 
 /* Match strength (G2) */
 .results-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
 .results-head .result-count { margin: 0; }
-.quality { margin: 8px 0 14px; padding: 10px 12px; border-radius: 9px; font-size: 13px; line-height: 1.5; }
-.quality-same, .quality-close { background: #e8f2ea; color: #23512f; }
-.quality-similar { background: #f1ebe2; color: #4a4239; }
-.quality-loose, .quality-nearest { background: #fbf1dd; color: #6a4b12; }
 .card-body { padding: 10px 12px 12px; }
 .card-body h3 { margin: 6px 0 4px; font-size: 14px; font-weight: 600; }
 .result-card h3 { margin: 6px 0 4px; }
-.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
-.badge-same, .badge-close { background: #dcebdf; color: #23512f; }
-.badge-similar { background: #ece4d8; color: #4a4239; }
-.badge-loose { background: #f7e6c4; color: #6a4b12; }
-.badge-nearest { background: #eee8df; color: #71695f; }
 .result-card details { font-size: 12px; color: var(--muted); }
 .result-card summary { cursor: pointer; color: var(--accent); }
 .result-card details ul { margin: 6px 0 0; padding-left: 16px; line-height: 1.45; }

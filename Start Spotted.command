@@ -67,7 +67,19 @@ fi
 
 # --- 3. Clothing dataset (first run only) ----------------------------------------------------
 step "Clothing dataset"
-if [ -f reference-data/catalog.json ] && [ -f reference-data/features-v3.archive ] && [ -x reference-data/reference-search ]; then
+if [ -f reference-data/catalog.json ] && [ -d reference-data/images ] && [ ! -f reference-data/features-v4.archive ]; then
+  say "  This version of Spotted matches clothes more accurately and needs to update its search index."
+  say "  This takes about a minute and does not download anything."
+  python3 scripts/prepare-dataset.py --reindex || fail "Updating the search index did not finish." \
+    "Double-click Start Spotted to try again."
+  rm -f reference-data/features-v2.archive reference-data/features-v3.archive
+fi
+if [ -f reference-data/features-v4.archive ] && [ scripts/reference-search.m -nt reference-data/reference-search ]; then
+  say "  Updating Spotted's image tools (a few seconds)…"
+  python3 scripts/prepare-dataset.py --compile || fail "Updating Spotted's image tools did not finish." \
+    "Make sure Apple Command Line Tools are installed, then double-click Start Spotted again."
+fi
+if [ -f reference-data/catalog.json ] && [ -f reference-data/features-v4.archive ] && [ -x reference-data/reference-search ]; then
   ok "Ready ($(python3 -c "import json; print(format(len(json.load(open('reference-data/catalog.json'))), ','))") items)"
 else
   say "  Spotted searches a free collection of about 3,000 real second-hand clothes"

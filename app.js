@@ -42,7 +42,7 @@ app.innerHTML = `
         <img id="photoPreview" alt="Selected image">
         <button class="text-button" type="button" id="clearImage">Choose another image</button>
       </figure>
-      <p class="privacy">The image is sent to Amazon Bedrock for garment identification. Visual matching runs against the locally stored clothing dataset.</p>
+      <p class="privacy">Before your photo leaves this Mac, Spotted blurs any faces and removes hidden details such as location. It then sends the photo once to Amazon Bedrock, in your own AWS account, to identify the garment. The AI is told to describe only the clothes, never the person. Spotted does not save your photo, and Bedrock does not use it to train models. Matching against the clothing dataset happens on this Mac.</p>
       <p class="setup-notice" id="setupNotice" ${window.__REFERENCE_SEARCH ? 'hidden' : ''}>
         Visual search is not configured. Follow the setup instructions in the README to enable Bedrock and build the local dataset index.
       </p>
@@ -168,7 +168,7 @@ const confidenceText = {
 };
 
 const strengthHelp = {
-  same: 'Nearly identical to your photo. This may be the same item.',
+  same: 'Nearly identical garment. This may be the same item.',
   close: 'Very similar shape, color, and pattern.',
   similar: 'Similar overall look, with some visible differences.',
   loose: 'Only loosely similar. Shares some visual traits.',
@@ -179,18 +179,6 @@ function categoryLabel(category) {
   if (category === 'no garment') return 'No garment detected';
   if (category === 'unknown') return 'Category unclear';
   return category;
-}
-
-// G2 (make clear how well the system can do what it can do): summarize the best match quality
-// so users are not left to assume an exact item was found.
-function overallQuality(matches, fallback, category) {
-  if (fallback) {
-    return `Nothing in the dataset${category !== 'unknown' ? ` for ${category}` : ''} is close to your photo. These are the nearest items, shown so you can judge for yourself. Try “Any category” above, or a photo of the garment on its own against a plain background.`;
-  }
-  const best = matches[0]?.strength;
-  if (best === 'same' || best === 'close') return 'At least one close visual match. These are dataset photos, not the exact item for sale.';
-  if (best === 'similar') return 'No close matches. These photos are similar in overall look, but not the same item.';
-  return 'No close matches. These are loose lookalikes only.';
 }
 
 let seenDetails = [];
@@ -266,12 +254,10 @@ function renderResults(payload) {
         <h2>${payload.fallback ? 'Nearest items' : 'Similar pieces'}</h2>
         <p class="result-count">${matches.length} ${matches.length === 1 ? 'item' : 'items'}, most similar first</p>
       </div>
-      <p class="quality quality-${esc(matches[0].strength)}">${esc(overallQuality(matches, payload.fallback, category))}</p>
       <div class="result-grid">${matches.map(match => `
         <article class="result-card">
           <img src="${esc(match.image)}" alt="${esc(match.uncategorized ? 'Uncategorized' : match.category)} reference photo" loading="lazy">
           <div class="card-body">
-            <span class="badge badge-${esc(match.strength)}">${esc(match.label)}</span>
             <h3>${esc(match.brand || 'Brand not recorded')}</h3>
             <p class="item-type">${esc([match.department, match.uncategorized ? 'Uncategorized' : match.category].filter(Boolean).join(' · '))}</p>
             ${facts(match)}
@@ -305,7 +291,9 @@ function renderResults(payload) {
     if (value && value !== category) searchImage(value);
   });
   $('#undoCorrection')?.addEventListener('click', () => searchImage(detectedCategory));
-  setStatus(payload.cached ? 'Search complete. Reused the earlier analysis of this photo.' : 'Search complete.');
+  const faces = payload.facesBlurred;
+  const blurNote = faces ? ` Blurred ${faces === 1 ? '1 face' : `${faces} faces`} on this Mac before sending.` : '';
+  setStatus((payload.cached ? 'Search complete. Reused the earlier analysis of this photo.' : 'Search complete.') + blurNote);
 }
 
 imageFile.addEventListener('change', () => selectImage(imageFile.files[0]));

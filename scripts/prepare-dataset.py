@@ -112,10 +112,38 @@ def prepare_images(directory):
                        check=True, stdout=subprocess.DEVNULL)
 
 
+def compile_helper():
+    """Build the Apple Vision helper used for face blurring, indexing, and search."""
+    binary = ROOT / "reference-search"
+    frameworks = ["Foundation", "Vision", "CoreImage", "CoreVideo", "CoreGraphics", "ImageIO"]
+    subprocess.run(["clang", "-O2", "-fobjc-arc", *[arg for name in frameworks for arg in ("-framework", name)],
+                    str(PROJECT / "scripts/reference-search.m"), "-o", str(binary)], check=True)
+    return binary
+
+
+def build_index():
+    binary = compile_helper()
+    subprocess.run([str(binary), "index", str(ROOT)], check=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive", type=Path, help=f"Use an already downloaded {ARCHIVE_NAME}")
+    parser.add_argument("--reindex", action="store_true",
+                        help="Only rebuild the search index from the photos already imported")
+    parser.add_argument("--compile", action="store_true",
+                        help="Only rebuild the Vision helper program (no download or reindex)")
     options = parser.parse_args()
+    if options.compile:
+        ROOT.mkdir(exist_ok=True)
+        compile_helper()
+        return
+    if options.reindex:
+        if not (ROOT / "catalog.json").exists():
+            raise SystemExit("No imported dataset found. Run this script without --reindex first.")
+        print("Rebuilding the local feature index…", flush=True)
+        build_index()
+        return
     ROOT.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="spotted-dataset-", dir=ROOT) as temporary:
         temporary = Path(temporary)
@@ -131,10 +159,7 @@ def main():
     prepare_images(ROOT / "images")
     (ROOT / "catalog.json").write_text(json.dumps(catalog), encoding="utf-8")
     print(f"Imported {len(catalog):,} items. Building the local feature index…", flush=True)
-    binary = ROOT / "reference-search"
-    subprocess.run(["clang", "-O2", "-fobjc-arc", "-framework", "Foundation", "-framework", "Vision",
-                    str(PROJECT / "scripts/reference-search.m"), "-o", str(binary)], check=True)
-    subprocess.run([str(binary), "index", str(ROOT)], check=True)
+    build_index()
 
 
 if __name__ == "__main__":
